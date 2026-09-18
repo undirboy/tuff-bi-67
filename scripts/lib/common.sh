@@ -88,7 +88,10 @@ missing_packages() {
     local pkg
     for pkg in "$@"; do
         grep -qxF "$pkg" "$index_file" && continue
+        # A virtual provider (e.g. `sh`) resolves through -Si …
         pacman --config "$conf" --dbpath "$dbpath" -Si "$pkg" &>/dev/null && continue
+        # … and a package group (xfce4, base-devel) only through -Sg.
+        [[ -n "$(pacman --config "$conf" --dbpath "$dbpath" -Sg "$pkg" 2>/dev/null)" ]] && continue
         printf '%s\n' "$pkg"
     done
 }

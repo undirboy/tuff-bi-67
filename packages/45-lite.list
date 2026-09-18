@@ -22,7 +22,7 @@ fzf
 bat
 htop
 unzip
-p7zip
+7zip
 wget
 curl
 man-db

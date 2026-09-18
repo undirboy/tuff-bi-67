@@ -41,7 +41,7 @@ pavucontrol
 # handled by profile/airootfs/etc/udev/rules.d/60-hexforge-input.rules.
 # game-devices-udev is AUR-only if you want the wider device set.
 sdl2-compat
-lib32-sdl2-compat
+# no lib32-sdl2-compat in multilib; Steam pulls the 32-bit SDL it needs
 
 # emulation & a few FOSS titles to prove the stack works
 retroarch
