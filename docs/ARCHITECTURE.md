@@ -53,8 +53,15 @@ OVMF, VirtualBox and VMware firmware.
 
 ## What lives in `airootfs/`
 
-Everything here is copied *after* packages are installed, so it wins over
-package defaults.
+**`mkarchiso` copies this overlay into the work directory *before* it runs
+`pacstrap`,** not after. That ordering matters twice over:
+
+1. Any path the overlay ships that a package also owns is a **file conflict**,
+   and pacman aborts the whole transaction. The build pacman.conf carries a
+   `NoExtract` line for each such path; `scripts/verify-packages.sh` checks
+   that list against the overlay in CI and fails if a new file needs one.
+2. It is why the live user is created by a boot-time service rather than by
+   shipping `/etc/passwd` — see below.
 
 | Path | Why |
 |---|---|

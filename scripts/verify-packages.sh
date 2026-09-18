@@ -93,6 +93,45 @@ for list in "$ROOT"/packages/*.list; do
     fi
 done
 
+# ------------------------------------------------- the airootfs overlay --
+#
+# mkarchiso lays profile/airootfs/ into the work directory before pacstrap
+# runs, so a path we ship that a package also owns is a file conflict and the
+# entire transaction aborts - about a minute into a build that was going to
+# take an hour. Every such path needs a NoExtract entry in the build
+# pacman.conf. Work out which ones those are from the file database.
+
+log "checking the airootfs overlay against package file ownership"
+if pacman --config "$CONF" --dbpath "$DBPATH" -Fy &>/dev/null; then
+    mapfile -t noextract < <(grep -oP '^[[:space:]]*NoExtract[[:space:]]*=[[:space:]]*\K.*' "$CONF" \
+                             | tr ' ' '\n' | grep -v '^$')
+    needs_noextract=()
+    while IFS= read -r file; do
+        rel="${file#"$ROOT"/profile/airootfs/}"
+        covered=0
+        for pattern in "${noextract[@]}"; do
+            # shellcheck disable=SC2053  # glob match is what NoExtract does
+            [[ $rel == $pattern ]] && { covered=1; break; }
+        done
+        (( covered )) && continue
+        owner="$(pacman --config "$CONF" --dbpath "$DBPATH" -Fq "$rel" 2>/dev/null | head -1)"
+        [[ -n $owner ]] && needs_noextract+=("$rel  (owned by $owner)")
+    done < <(find "$ROOT/profile/airootfs" -type f)
+
+    if (( ${#needs_noextract[@]} )); then
+        printf '%sFAIL%s %d overlay file(s) collide with a package:\n' \
+            "$C_RED" "$C_RST" "${#needs_noextract[@]}"
+        printf '       %s\n' "${needs_noextract[@]}"
+        printf '\n       pacstrap aborts on these. Add to profile/pacman.conf:\n'
+        printf '       NoExtract    = %s\n' "${needs_noextract[@]%%  (*}"
+        missing_required=$(( missing_required + ${#needs_noextract[@]} ))
+    else
+        ok "no overlay file collides with a package"
+    fi
+else
+    warn "could not sync the file databases; skipped the overlay check"
+fi
+
 printf '\n'
 if (( missing_required )); then
     printf '%s%d package name(s) do not resolve.%s\n' "$C_RED" "$missing_required" "$C_RST"
