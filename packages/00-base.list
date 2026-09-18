@@ -69,7 +69,6 @@ zram-generator
 # shell & terminal basics
 bash-completion
 diffutils
-grml-zsh-config
 htop
 less
 man-db

@@ -1,5 +1,9 @@
 # ~/.zshrc - HexForge defaults
-# grml's zsh config does the heavy lifting; this layers our bits on top.
+#
+# Self-contained on purpose. grml-zsh-config owns /etc/skel/.zshrc, and the
+# overlay is laid down before pacstrap, so shipping both is a file conflict
+# that aborts the build. Sourcing a system zshrc if one exists keeps this
+# working for anyone who installs grml-zsh-config later.
 [[ -r /etc/zsh/zshrc ]] && source /etc/zsh/zshrc
 
 setopt HIST_IGNORE_ALL_DUPS SHARE_HISTORY EXTENDED_HISTORY

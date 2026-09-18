@@ -101,30 +101,52 @@ done
 # take an hour. Every such path needs a NoExtract entry in the build
 # pacman.conf. Work out which ones those are from the file database.
 
+# Paths a package owns but which pacman tolerates anyway, because they are in
+# that package's `backup` array: pacman keeps ours and writes its own as
+# .pacnew instead of erroring. Verified empirically - the first real build
+# installed all of these without complaint and failed only on the two that
+# are not backup files.
+OVERLAY_ALLOWED=(
+    etc/pacman.conf                 # pacman
+    etc/locale.gen                  # glibc
+    etc/skel/.bashrc                # bash
+    etc/mkinitcpio.d/linux.preset   # linux
+    etc/motd                        # filesystem
+)
+
 log "checking the airootfs overlay against package file ownership"
 if pacman --config "$CONF" --dbpath "$DBPATH" -Fy &>/dev/null; then
-    mapfile -t noextract < <(grep -oP '^[[:space:]]*NoExtract[[:space:]]*=[[:space:]]*\K.*' "$CONF" \
-                             | tr ' ' '\n' | grep -v '^$')
-    needs_noextract=()
+    collisions=()
     while IFS= read -r file; do
         rel="${file#"$ROOT"/profile/airootfs/}"
-        covered=0
-        for pattern in "${noextract[@]}"; do
-            # shellcheck disable=SC2053  # glob match is what NoExtract does
-            [[ $rel == $pattern ]] && { covered=1; break; }
+        allowed=0
+        for a in "${OVERLAY_ALLOWED[@]}"; do
+            [[ $rel == "$a" ]] && { allowed=1; break; }
         done
-        (( covered )) && continue
+        (( allowed )) && continue
         owner="$(pacman --config "$CONF" --dbpath "$DBPATH" -Fq "$rel" 2>/dev/null | head -1)"
-        [[ -n $owner ]] && needs_noextract+=("$rel  (owned by $owner)")
+        [[ -n $owner ]] && collisions+=("$rel  (owned by $owner)")
     done < <(find "$ROOT/profile/airootfs" -type f)
 
-    if (( ${#needs_noextract[@]} )); then
+    if (( ${#collisions[@]} )); then
         printf '%sFAIL%s %d overlay file(s) collide with a package:\n' \
-            "$C_RED" "$C_RST" "${#needs_noextract[@]}"
-        printf '       %s\n' "${needs_noextract[@]}"
-        printf '\n       pacstrap aborts on these. Add to profile/pacman.conf:\n'
-        printf '       NoExtract    = %s\n' "${needs_noextract[@]%%  (*}"
-        missing_required=$(( missing_required + ${#needs_noextract[@]} ))
+            "$C_RED" "$C_RST" "${#collisions[@]}"
+        printf '       %s\n' "${collisions[@]}"
+        cat <<'EOF'
+
+       mkarchiso lays the overlay down before pacstrap, so pacman aborts the
+       whole transaction on these. NoExtract does NOT help: the conflict
+       check runs before extraction. Pick one:
+
+         - keep the path out of the overlay (drop the package, or use an
+           extension point it provides, e.g. /etc/zsh/zshrc.local)
+         - install it from a pacman hook in airootfs/etc/pacman.d/hooks/,
+           as the branding hook does for /usr/lib/os-release
+         - if the owning package lists it in its backup array, pacman
+           tolerates it: add it to OVERLAY_ALLOWED in this script, with the
+           owner named in a comment
+EOF
+        missing_required=$(( missing_required + ${#collisions[@]} ))
     else
         ok "no overlay file collides with a package"
     fi

@@ -1,0 +1,20 @@
+# /usr/lib/os-release belongs to the `filesystem` package, so the overlay
+# cannot simply ship its own copy: mkarchiso lays the overlay down before
+# pacstrap runs, and pacman aborts the transaction on a file conflict.
+# NoExtract does not help - the conflict check runs before extraction.
+#
+# A hook does. It is our own file, so it never collides, it runs inside the
+# pacstrap transaction (so the ISO is branded at build time), and it runs
+# again whenever `filesystem` is upgraded on an installed system, so the
+# branding survives instead of silently reverting to Arch's.
+
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = filesystem
+
+[Action]
+Description = Applying HexForge branding to /usr/lib/os-release...
+When = PostTransaction
+Exec = /usr/bin/install -Dm0644 /usr/local/lib/hexforge/os-release /usr/lib/os-release

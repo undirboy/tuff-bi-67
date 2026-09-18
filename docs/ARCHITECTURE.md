@@ -57,15 +57,22 @@ OVMF, VirtualBox and VMware firmware.
 `pacstrap`,** not after. That ordering matters twice over:
 
 1. Any path the overlay ships that a package also owns is a **file conflict**,
-   and pacman aborts the whole transaction. The build pacman.conf carries a
-   `NoExtract` line for each such path; `scripts/verify-packages.sh` checks
-   that list against the overlay in CI and fails if a new file needs one.
+   and pacman aborts the whole transaction. `NoExtract` does not help — the
+   conflict check runs before extraction. The two ways out are to keep the
+   path out of the overlay entirely, or to install it from a pacman hook in
+   `airootfs/etc/pacman.d/hooks/`, which is what the branding hook does for
+   `/usr/lib/os-release`. Files in the owning package's `backup` array (such
+   as `/etc/pacman.conf`) are the exception pacman tolerates.
+   `scripts/verify-packages.sh` checks the whole overlay against package file
+   ownership in CI, so a new collision fails in seconds rather than at
+   pacstrap.
 2. It is why the live user is created by a boot-time service rather than by
    shipping `/etc/passwd` — see below.
 
 | Path | Why |
 |---|---|
-| `usr/lib/os-release` | branding (`ID=hexforge`, `ID_LIKE=arch`) |
+| `usr/local/lib/hexforge/os-release` | branding source, applied to `/usr/lib/os-release` by a pacman hook |
+| `etc/pacman.d/hooks/` | the branding hook — the overlay cannot ship `/usr/lib/os-release` directly |
 | `etc/hexforge/live.conf` | live username, password, sudo policy |
 | `usr/lib/hexforge/live-setup.sh` | creates the live user, configures autologin, starts the right guest agent |
 | `etc/systemd/system/*.target.wants/` | service enablement — archiso never runs `systemctl enable` |
