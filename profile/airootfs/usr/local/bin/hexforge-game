@@ -43,6 +43,11 @@ cmd_check() {
         [[ $gl == *llvmpipe* ]] && printf '  %saccel         %s  software rendering only - see: hexforge-game tips%s\n' "$DIM" "$WARN" "$RST"
     fi
 
+    if ! have vulkaninfo && ! have glxinfo; then
+        printf '  %s no graphics tools installed - cannot inspect the driver\n' "$WARN"
+        printf '  %sinstall vulkan-tools and mesa-utils to see what this machine can render%s\n' "$DIM" "$RST"
+    fi
+
     printf '\n%sSystem%s\n\n' "$BOLD" "$RST"
     printf '  %-14s %s\n' "vm.max_map_count" "$(sysctl -n vm.max_map_count)"
     printf '  %-14s %s\n' "open files" "$(ulimit -Hn)"

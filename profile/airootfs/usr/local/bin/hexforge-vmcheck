@@ -69,6 +69,10 @@ case "$virt" in
     none)
         row "$PASS" "bare metal" "guest agents not needed"
         ;;
+    *)
+        row "$WARN" "guest agent" "none for '$virt'"
+        hint "HexForge ships agents for QEMU/KVM, VirtualBox, VMware and Hyper-V. Containers and other hypervisors need no guest agent."
+        ;;
 esac
 
 section "Graphics"
