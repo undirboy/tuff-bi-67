@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+#
+# Report how well this system is integrated with its hypervisor: guest
+# agents, 3D acceleration, clipboard, shared folders. Prints a hint for
+# every check that fails rather than just a red cross.
+
+set -uo pipefail
+
+PASS=$'\033[32m  ok  \033[0m'
+FAIL=$'\033[31m fail \033[0m'
+WARN=$'\033[33m warn \033[0m'
+BOLD=$'\033[1m'; RST=$'\033[0m'
+
+failures=0
+
+row() { printf '[%s] %-34s %s\n' "$1" "$2" "${3-}"; }
+hint() { printf '       \033[2m-> %s\033[0m\n' "$1"; }
+
+section() { printf '\n%s%s%s\n' "$BOLD" "$1" "$RST"; }
+
+virt="$(systemd-detect-virt 2>/dev/null || echo none)"
+
+section "Platform"
+row "$PASS" "hypervisor" "$virt"
+if [[ -r /proc/cpuinfo ]]; then
+    if grep -qE '^flags.*\b(vmx|svm)\b' /proc/cpuinfo; then
+        row "$PASS" "nested virtualisation" "available"
+    else
+        row "$WARN" "nested virtualisation" "not exposed"
+        hint "Enable nested virt on the host if you want KVM/Docker-in-VM speed."
+    fi
+fi
+row "$PASS" "cpus / memory" "$(nproc) vCPU, $(awk '/MemTotal/{printf "%.1f GB", $2/1048576}' /proc/meminfo)"
+
+section "Guest integration"
+check_unit() {
+    local unit=$1 label=$2 hintmsg=$3
+    if ! systemctl list-unit-files "$unit" &>/dev/null || \
+       [[ -z "$(systemctl list-unit-files --no-legend "$unit" 2>/dev/null)" ]]; then
+        row "$WARN" "$label" "not installed"
+        return
+    fi
+    if systemctl is-active --quiet "$unit"; then
+        row "$PASS" "$label" "active"
+    else
+        row "$FAIL" "$label" "inactive"
+        hint "$hintmsg"
+        ((failures++))
+    fi
+}
+
+case "$virt" in
+    kvm|qemu)
+        check_unit qemu-guest-agent.service "qemu-guest-agent" \
+            "sudo systemctl start qemu-guest-agent - and add a virtio-serial org.qemu.guest_agent.0 channel to the VM."
+        check_unit spice-vdagentd.service "spice agent (clipboard/resize)" \
+            "Start the VM with -device virtio-serial -chardev spicevmc,... or use virt-manager's SPICE display."
+        ;;
+    oracle)
+        check_unit vboxservice.service "VirtualBox guest additions" \
+            "sudo systemctl start vboxservice, then set Display > Graphics Controller to VMSVGA."
+        ;;
+    vmware)
+        check_unit vmtoolsd.service "open-vm-tools" "sudo systemctl start vmtoolsd"
+        ;;
+    microsoft)
+        row "$WARN" "hyper-v integration" "enable Enhanced Session Mode on the host"
+        ;;
+    none)
+        row "$PASS" "bare metal" "guest agents not needed"
+        ;;
+esac
+
+section "Graphics"
+drm_driver=""
+for card in /sys/class/drm/card*/device/driver; do
+    [[ -e $card ]] || continue
+    drm_driver="$(basename "$(readlink -f "$card")")"
+    break
+done
+if [[ -n $drm_driver ]]; then
+    row "$PASS" "kernel graphics driver" "$drm_driver"
+else
+    row "$FAIL" "kernel graphics driver" "none bound"
+    hint "Boot the 'safe graphics' menu entry, or give the VM a virtio-gpu / VMSVGA adapter."
+    ((failures++))
+fi
+
+if command -v glxinfo &>/dev/null; then
+    renderer="$(glxinfo -B 2>/dev/null | awk -F': ' '/OpenGL renderer/{print $2; exit}')"
+    if [[ -n $renderer ]]; then
+        if [[ $renderer == *llvmpipe* || $renderer == *softpipe* ]]; then
+            row "$WARN" "OpenGL renderer" "$renderer (software)"
+            hint "No GPU acceleration. On QEMU use -device virtio-vga-gl -display gtk,gl=on; on VirtualBox tick 'Enable 3D Acceleration'."
+        else
+            row "$PASS" "OpenGL renderer" "$renderer"
+        fi
+    else
+        row "$FAIL" "OpenGL renderer" "no GLX"
+        ((failures++))
+    fi
+else
+    row "$WARN" "glxinfo" "mesa-utils not installed"
+fi
+
+if command -v vulkaninfo &>/dev/null; then
+    gpu="$(vulkaninfo --summary 2>/dev/null | awk -F'= ' '/deviceName/{print $2; exit}')"
+    if [[ -n $gpu ]]; then
+        row "$PASS" "Vulkan device" "$gpu"
+    else
+        row "$FAIL" "Vulkan device" "none"
+        hint "Steam/Proton need Vulkan. Install a vulkan-* driver, or enable venus (virtio) on the host."
+        ((failures++))
+    fi
+fi
+
+section "Sharing"
+if mount | grep -q ' type virtiofs '; then
+    row "$PASS" "virtiofs share" "$(mount | awk '/type virtiofs/{print $3}' | paste -sd' ')"
+elif mount | grep -q ' type vboxsf '; then
+    row "$PASS" "VirtualBox shared folder" "$(mount | awk '/type vboxsf/{print $3}' | paste -sd' ')"
+elif mount | grep -q ' type 9p '; then
+    row "$PASS" "9p share" "$(mount | awk '/type 9p/{print $3}' | paste -sd' ')"
+else
+    row "$WARN" "host folder share" "none mounted"
+    hint "QEMU: -virtfs local,path=DIR,mount_tag=host,security_model=mapped-xattr then 'sudo mount -t 9p host /mnt'."
+fi
+
+printf '\n'
+if (( failures )); then
+    printf '%s%d check(s) need attention.%s See docs/RUNNING-VMS.md for per-hypervisor settings.\n' \
+        $'\033[33m' "$failures" "$RST"
+    exit 1
+fi
+printf '%sEverything looks healthy.%s\n' $'\033[32m' "$RST"

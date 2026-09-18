@@ -1,0 +1,11 @@
+# Firmware and drivers for physical machines.
+# Skipped by `--vm-only` builds, which trims roughly 400 MB from the ISO.
+
+alsa-firmware
+alsa-ucm-conf
+b43-fwcutter
+broadcom-wl
+linux-firmware-marvell
+sof-firmware
+upower
+usb_modeswitch

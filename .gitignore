@@ -1,0 +1,14 @@
+# Build output
+/out/
+/work/
+/build/
+/vm/
+
+# Generated inside the profile by scripts/build-iso.sh
+/profile/packages.x86_64
+/profile/version
+
+*.iso
+*.qcow2
+*.img
+*.log

@@ -1,0 +1,21 @@
+# Not in the official repos. Installed on a *running* system with
+# `hexforge-toolkit aur`, which bootstraps `paru` first. These are never
+# baked into the ISO: building AUR packages inside the ISO build would make
+# it non-reproducible and slow.
+
+burpsuite
+feroxbuster
+nuclei
+subfinder
+amass
+netexec
+bloodhound
+seclists
+python-pwntools
+pwndbg
+gef
+volatility3
+protonup-qt
+goverlay
+heroic-games-launcher-bin
+visual-studio-code-bin

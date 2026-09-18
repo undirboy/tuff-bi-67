@@ -1,0 +1,11 @@
+NAME="HexForge Linux"
+PRETTY_NAME="HexForge Linux"
+ID=hexforge
+ID_LIKE=arch
+BUILD_ID=rolling
+ANSI_COLOR="38;2;23;147;209"
+HOME_URL="https://github.com/undirboy/tuff-bi-67"
+DOCUMENTATION_URL="https://github.com/undirboy/tuff-bi-67/tree/main/docs"
+SUPPORT_URL="https://github.com/undirboy/tuff-bi-67/issues"
+BUG_REPORT_URL="https://github.com/undirboy/tuff-bi-67/issues"
+LOGO=hexforge

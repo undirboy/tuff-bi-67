@@ -1,0 +1,9 @@
+# Only used with `--with-nvidia` (bare metal or GPU passthrough).
+# Omitted by default: the open-source stack in 60-gaming.list covers
+# virtio-gpu, AMD and Intel, and nvidia-dkms adds ~700 MB plus build time.
+
+nvidia-dkms
+nvidia-utils
+lib32-nvidia-utils
+nvidia-settings
+linux-headers

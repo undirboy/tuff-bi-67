@@ -1,0 +1,15 @@
+[Unit]
+Description=HexForge live session setup
+Documentation=https://github.com/undirboy/tuff-bi-67/blob/main/docs/ARCHITECTURE.md
+ConditionPathExists=/run/archiso
+After=systemd-sysusers.service systemd-tmpfiles-setup.service
+Before=display-manager.service systemd-user-sessions.service getty@tty1.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/hexforge/live-setup.sh
+StandardOutput=journal+console
+
+[Install]
+WantedBy=multi-user.target

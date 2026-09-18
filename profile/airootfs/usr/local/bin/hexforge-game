@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+#
+# Gaming stack diagnostics and launcher.
+#
+#   hexforge-game check          is the machine able to run games at all
+#   hexforge-game steam [args]   launch Steam with gamemode + MangoHud
+#   hexforge-game run <cmd...>   run anything with gamemode + MangoHud
+#   hexforge-game tips           launch options and VM-specific advice
+
+set -uo pipefail
+
+BOLD=$'\033[1m'; RST=$'\033[0m'; DIM=$'\033[2m'
+OK=$'\033[32mok\033[0m'; BAD=$'\033[31mmissing\033[0m'; WARN=$'\033[33mwarn\033[0m'
+
+have() { command -v "$1" &>/dev/null; }
+
+cmd_check() {
+    printf '%sGaming stack%s\n\n' "$BOLD" "$RST"
+
+    local tool
+    for tool in steam lutris wine gamemoderun mangohud gamescope vulkaninfo; do
+        if have "$tool"; then
+            printf '  %-14s %s\n' "$tool" "$OK"
+        else
+            printf '  %-14s %s\n' "$tool" "$BAD"
+        fi
+    done
+
+    printf '\n%sGraphics%s\n\n' "$BOLD" "$RST"
+    if have vulkaninfo; then
+        local devs
+        devs="$(vulkaninfo --summary 2>/dev/null | awk -F'= ' '/deviceName/{print $2}')"
+        if [[ -n $devs ]]; then
+            while read -r d; do printf '  vulkan        %s  %s\n' "$OK" "$d"; done <<<"$devs"
+        else
+            printf '  vulkan        %s  no device - Proton and DXVK will not work\n' "$BAD"
+        fi
+    fi
+    if have glxinfo; then
+        local gl
+        gl="$(glxinfo -B 2>/dev/null | awk -F': ' '/OpenGL renderer/{print $2; exit}')"
+        printf '  opengl        %s  %s\n' "$OK" "${gl:-unknown}"
+        [[ $gl == *llvmpipe* ]] && printf '  %saccel         %s  software rendering only - see: hexforge-game tips%s\n' "$DIM" "$WARN" "$RST"
+    fi
+
+    printf '\n%sSystem%s\n\n' "$BOLD" "$RST"
+    printf '  %-14s %s\n' "vm.max_map_count" "$(sysctl -n vm.max_map_count)"
+    printf '  %-14s %s\n' "open files" "$(ulimit -Hn)"
+    if [[ -d /sys/fs/cgroup ]] && have gamemoded; then
+        printf '  %-14s %s\n' "gamemode" "$(gamemoded -s 2>/dev/null || echo 'not running')"
+    fi
+    printf '  %-14s %s\n' "controllers" \
+        "$(find /dev/input -maxdepth 1 -name 'js*' 2>/dev/null | wc -l) joystick node(s)"
+}
+
+wrap() {
+    local -a pre=()
+    have gamemoderun && pre+=(gamemoderun)
+    have mangohud && pre+=(mangohud)
+    printf '%s==>%s %s %s\n' "$BOLD" "$RST" "${pre[*]-}" "$*"
+    exec "${pre[@]}" "$@"
+}
+
+cmd_steam() {
+    have steam || { echo "steam is not installed (build with --edition full or pacman -S steam)" >&2; exit 1; }
+    wrap steam "$@"
+}
+
+cmd_run() {
+    [[ $# -gt 0 ]] || { echo "usage: hexforge-game run <command> [args...]" >&2; exit 1; }
+    wrap "$@"
+}
+
+cmd_tips() {
+    cat <<EOF
+${BOLD}Steam launch options${RST}
+
+  Force Proton + MangoHud + gamemode on a single title:
+    ${DIM}gamemoderun mangohud %command%${RST}
+
+  Games that stutter on shader compilation:
+    ${DIM}RADV_PERFTEST=gpl gamemoderun %command%${RST}
+
+  Old titles that hate Wayland:
+    ${DIM}SDL_VIDEODRIVER=x11 %command%${RST}
+
+${BOLD}Running games inside a VM${RST}
+
+  A VM has no GPU unless you give it one. In order of effort:
+
+  1. ${BOLD}virtio-gpu with venus/virgl${RST} (easiest, good for 2D, indie and
+     emulated titles). QEMU:
+       ${DIM}-device virtio-vga-gl -display gtk,gl=on${RST}
+     Check it worked: ${DIM}hexforge-game check${RST} should not say llvmpipe.
+
+  2. ${BOLD}VirtualBox 3D acceleration${RST}: Settings > Display > VMSVGA +
+     "Enable 3D Acceleration", 128 MB video memory, guest additions running.
+     OpenGL only, no Vulkan - so no Proton/DXVK.
+
+  3. ${BOLD}GPU passthrough (VFIO)${RST} - the only way to get real gaming
+     performance. Needs IOMMU, a second GPU or a host that can release the
+     primary one, and host-side vfio-pci binding. See docs/GAMING.md.
+
+  Emulators (RetroArch) and native Linux indie games are perfectly happy on
+  option 1. Anything using DirectX 11/12 through Proton needs 1 with venus,
+  or 3.
+EOF
+}
+
+case "${1-check}" in
+    check)         shift ||:; cmd_check ;;
+    steam)         shift; cmd_steam "$@" ;;
+    run)           shift; cmd_run "$@" ;;
+    tips)          cmd_tips ;;
+    -h|--help|help) cmd_tips ;;
+    *)             echo "usage: hexforge-game {check|steam|run|tips}" >&2; exit 1 ;;
+esac

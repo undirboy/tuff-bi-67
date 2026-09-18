@@ -1,0 +1,16 @@
+# Guest integration: clipboard sharing, display auto-resize, folder sharing.
+# HexForge is built to be run virtually first, so this list is never optional.
+
+qemu-guest-agent
+spice-vdagent
+open-vm-tools
+virtualbox-guest-utils
+hyperv
+
+# virtio / virgl / venus graphics stack for accelerated VM desktops
+mesa
+mesa-utils
+vulkan-icd-loader
+vulkan-swrast
+vulkan-virtio
+vulkan-tools

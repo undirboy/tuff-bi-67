@@ -1,0 +1,33 @@
+name: verify-packages
+
+# Arch is a rolling release: package names get renamed, split or dropped to
+# the AUR without warning. Catching that on a schedule is much cheaper than
+# catching it 40 minutes into an ISO build.
+
+on:
+  schedule:
+    - cron: '17 4 * * 1'   # Mondays, 04:17 UTC
+  pull_request:
+    paths:
+      - 'packages/**'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: package names resolve
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install git
+        run: pacman -Sy --noconfirm --needed git
+
+      - uses: actions/checkout@v4
+
+      - name: Enable multilib
+        run: |
+          sed -i '/^#\[multilib\]/,+1 s/^#//' /etc/pacman.conf
+          pacman -Sy --noconfirm
+
+      - name: Check every manifest
+        run: ./scripts/verify-packages.sh
