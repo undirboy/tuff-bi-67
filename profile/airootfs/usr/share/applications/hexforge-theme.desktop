@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=HexForge Dark Mode
+Comment=Switch the whole desktop between dark and light
+Exec=hexforge-theme toggle
+Icon=preferences-desktop-theme
+Terminal=true
+Categories=Settings;DesktopSettings;
+Keywords=dark;light;theme;appearance;

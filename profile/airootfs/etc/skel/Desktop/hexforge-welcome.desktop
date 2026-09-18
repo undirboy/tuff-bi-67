@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=HexForge - start here
-Comment=Quick tour of the tools on this image
-Icon=utilities-terminal
-Exec=sh -c 'hexforge-welcome; hexforge-vmcheck; echo; read -p "Press Enter to close " _'
+Comment=Every tool on this image, in one place
+Icon=applications-system
+Exec=hexforge
 Terminal=true
 Categories=System;

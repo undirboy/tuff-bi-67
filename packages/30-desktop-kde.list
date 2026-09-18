@@ -12,6 +12,8 @@ kwalletmanager
 sddm
 sddm-kcm
 breeze-gtk
+breeze-icons
+gnome-themes-extra
 xdg-desktop-portal-kde
 xdg-user-dirs
 

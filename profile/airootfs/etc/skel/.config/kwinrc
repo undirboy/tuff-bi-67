@@ -1,0 +1,15 @@
+[Compositing]
+# Keep the compositor, but with the cheapest settings: on virtio-gpu or
+# llvmpipe the fancy defaults are what make Plasma feel slow.
+AnimationSpeed=2
+LatencyPolicy=Low
+
+[Effect-slide]
+Duration=100
+
+[Plugins]
+blurEnabled=false
+contrastEnabled=false
+kwin4_effect_fadeEnabled=true
+slideEnabled=true
+wobblywindowsEnabled=false

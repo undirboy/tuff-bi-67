@@ -127,11 +127,36 @@ seed_home() {
     runuser -u "$USERNAME" -- xdg-user-dirs-update 2>/dev/null || true
 }
 
+apply_defaults() {
+    # Dark by default, everywhere, before the session starts - so nobody sees
+    # a white flash and then has to go hunting through settings dialogues.
+    local mode=dark
+    [[ -r /etc/hexforge/theme ]] && mode="$(< /etc/hexforge/theme)"
+    if [[ -x /usr/local/bin/hexforge-theme ]]; then
+        if runuser -u "$USERNAME" -- /usr/local/bin/hexforge-theme "$mode" &>/dev/null; then
+            log "applied the $mode theme"
+        else
+            warn "could not apply the $mode theme"
+        fi
+    fi
+
+    # Tune for whatever we turned out to be running on. Cheap, and it is the
+    # difference between a snappy VM desktop and a sluggish one.
+    if [[ -x /usr/local/bin/hexforge-optimize ]]; then
+        if /usr/local/bin/hexforge-optimize apply &>/dev/null; then
+            log "applied the $(systemd-detect-virt &>/dev/null && echo vm || echo bare-metal) tuning profile"
+        else
+            warn "optimisation profile could not be applied"
+        fi
+    fi
+}
+
 main() {
     create_user
     seed_home
     configure_autologin
     start_guest_agent
+    apply_defaults
     log "live session ready"
 }
 

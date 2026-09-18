@@ -18,7 +18,7 @@ pass() { printf '%s ok %s %s\n' "$C_GRN" "$C_RST" "$*"; }
 
 mapfile -t SCRIPTS < <(
     find scripts profile/airootfs/usr -type f \
-         \( -name '*.sh' -o -path '*/bin/hexforge-*' \) | sort
+         \( -name '*.sh' -o -path '*/bin/hexforge*' \) | sort
 )
 
 log "shell syntax"

@@ -28,6 +28,7 @@ sudo ./scripts/build-iso.sh       # build (Arch host) …
 | **Development** | gcc/clang/LLVM, Python, Go, Rust, Node, JDK, Neovim, VS Code, Docker, Podman, libvirt/QEMU for nested VMs |
 | **Gaming** | Steam, Proton, Lutris, Wine, Gamescope, GameMode, MangoHud, RetroArch, PipeWire low-latency audio, full 32-bit multilib stack |
 | **Virtualisation** | Guest agents for QEMU/KVM, VirtualBox, VMware and Hyper-V; virtio-gpu / virgl / venus 3D; clipboard, resize and folder sharing that work out of the box |
+| **Interface** | `hexforge` launcher, dark by default everywhere, and one command that tunes the machine for whichever of bare metal or a VM it turns out to be |
 
 Live user: **`forge` / `forge`** (change it in `profile/airootfs/etc/hexforge/live.conf`
 before building anything you hand to someone else).
@@ -72,6 +73,10 @@ OpenGL context so the desktop is not stuck on software rendering:
 ./scripts/run-vm.sh --share ~/projects --ram 12G --cpus 8
 ```
 
+Whichever you boot — a VM or the metal — the image behaves the same. On first
+boot it applies the dark theme, detects the platform and tunes for it, so
+there is nothing to configure before you start working.
+
 VirtualBox, VMware and Hyper-V are supported too — the per-hypervisor settings
 that matter (and the ones that silently cost you 3D acceleration) are in
 [docs/RUNNING-VMS.md](docs/RUNNING-VMS.md).
@@ -95,6 +100,9 @@ sudo hexforge-install --disk /dev/vda --fs btrfs --swap 8G --user you
 
 | Command | What it does |
 |---|---|
+| `hexforge` | **the launcher** — every tool on the image, one keyboard-driven menu |
+| `hexforge-theme` | dark mode across GTK, Qt/KDE, XFCE and the console (dark is the default) |
+| `hexforge-optimize` | tune for bare metal or for a VM, and undo it again |
 | `hexforge-welcome` | tour of the image |
 | `hexforge-vmcheck` | hypervisor, 3D, guest-agent and sharing health, with fixes |
 | `hexforge-game` | gaming stack check, launch options, `hexforge-game steam` |
@@ -143,6 +151,8 @@ times and disk space.
 ## Documentation
 
 - [BUILDING.md](docs/BUILDING.md) — build the ISO, on Arch or anywhere else
+- [LAUNCHER.md](docs/LAUNCHER.md) — the launcher, dark mode, desktop defaults
+- [OPTIMISATION.md](docs/OPTIMISATION.md) — what gets tuned for a VM vs bare metal, and why
 - [RUNNING-VMS.md](docs/RUNNING-VMS.md) — QEMU, VirtualBox, VMware, Hyper-V, Proxmox
 - [LOW-SPEC.md](docs/LOW-SPEC.md) — older laptops: 8 GB, dual core, Intel Macs
 - [GAMING.md](docs/GAMING.md) — what runs in a VM, and GPU passthrough when it doesn't

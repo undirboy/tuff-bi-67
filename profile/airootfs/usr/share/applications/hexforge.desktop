@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=HexForge Launcher
+GenericName=Control Centre
+Comment=Every tool on this image, in one place
+Exec=hexforge
+Icon=applications-system
+Terminal=true
+Categories=System;Settings;
+Keywords=hexforge;launcher;tools;security;
+StartupNotify=false

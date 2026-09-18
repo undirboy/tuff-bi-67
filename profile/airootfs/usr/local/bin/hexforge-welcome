@@ -22,6 +22,9 @@ ${CYAN}${BOLD}
 ${RST}${DIM}   HexForge Linux (${version}) - running under: ${virt}${RST}
 
  ${BOLD}Get going${RST}
+   ${CYAN}hexforge${RST}            the launcher - everything, in one menu
+   ${CYAN}hexforge-theme${RST}      dark mode (already on) / light mode
+   ${CYAN}hexforge-optimize${RST}   tune for this machine, VM or bare metal
    ${CYAN}hexforge-vmcheck${RST}    virtualisation, graphics and guest-agent health
    ${CYAN}hexforge-toolkit${RST}    add BlackArch / AUR security tooling
    ${CYAN}hexforge-game${RST}       check the gaming stack, launch Steam properly

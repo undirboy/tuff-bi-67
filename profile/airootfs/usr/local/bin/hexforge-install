@@ -250,11 +250,27 @@ for f in /etc/sysctl.d/99-hexforge.conf \
 done
 run install -Dm0644 /etc/sudoers.d/10-wheel "$TARGET/etc/sudoers.d/10-wheel"
 run chmod 0440 "$TARGET/etc/sudoers.d/10-wheel"
-for b in /usr/local/bin/hexforge-*; do
+# Note the glob: `hexforge-*` would miss the launcher itself.
+for b in /usr/local/bin/hexforge*; do
     [[ $b == */hexforge-install ]] && continue
     run install -Dm0755 "$b" "$TARGET$b"
 done
+run install -Dm0755 /usr/local/bin/hexforge-install "$TARGET/usr/local/bin/hexforge-install"
 run cp -r "$SHARE" "$TARGET/usr/local/share/" 2>/dev/null || true
+
+# Desktop menu entries and the dark defaults, so an installed system looks
+# and behaves exactly like the live one.
+for d in /usr/share/applications/hexforge*.desktop; do
+    [[ -e $d ]] && run install -Dm0644 "$d" "$TARGET$d"
+done
+if [[ -d /etc/skel ]]; then
+    if (( DRY_RUN )); then
+        printf '%s  [dry-run] cp -r /etc/skel/. %s/etc/skel/%s\n' "$DIM" "$TARGET" "$RST"
+    else
+        cp -r /etc/skel/. "$TARGET/etc/skel/"
+    fi
+fi
+[[ -e /etc/hexforge/theme ]] && run install -Dm0644 /etc/hexforge/theme "$TARGET/etc/hexforge/theme"
 
 step "Configuring the installed system"
 CHROOT_SCRIPT=$(cat <<CHROOT
@@ -288,6 +304,11 @@ done
 for grp in docker libvirt wireshark vboxsf games kvm; do
     getent group "\$grp" >/dev/null && usermod -aG "\$grp" '$USERNAME'
 done
+
+# Same defaults the live image applies: dark theme, and tuning for whatever
+# this machine turns out to be.
+[ -x /usr/local/bin/hexforge-theme ] && runuser -u '$USERNAME' -- /usr/local/bin/hexforge-theme dark >/dev/null 2>&1 || true
+[ -x /usr/local/bin/hexforge-optimize ] && /usr/local/bin/hexforge-optimize apply >/dev/null 2>&1 || true
 CHROOT
 )
 
