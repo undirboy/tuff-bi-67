@@ -24,10 +24,9 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Enable multilib
-        run: |
-          sed -i '/^#\[multilib\]/,+1 s/^#//' /etc/pacman.conf
-          pacman -Sy --noconfirm
-
+      # No pacman.conf surgery here: verify-packages.sh syncs into its own
+      # throwaway dbpath using profile/pacman.conf, so it checks against the
+      # exact repositories a build uses (multilib included) and fails loudly
+      # if one of them does not sync.
       - name: Check every manifest
         run: ./scripts/verify-packages.sh

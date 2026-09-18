@@ -37,7 +37,9 @@ alsa-utils
 pavucontrol
 
 # controllers
-game-devices-udev
+# Steam ships its own udev rules for controllers, and /dev/uinput access is
+# handled by profile/airootfs/etc/udev/rules.d/60-hexforge-input.rules.
+# game-devices-udev is AUR-only if you want the wider device set.
 sdl2-compat
 lib32-sdl2-compat
 

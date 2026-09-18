@@ -5,6 +5,7 @@
 
 burpsuite
 feroxbuster
+ffuf
 nuclei
 subfinder
 amass
@@ -15,6 +16,9 @@ python-pwntools
 pwndbg
 gef
 volatility3
+rizin-cutter
+game-devices-udev
+broadcom-wl-dkms
 protonup-qt
 goverlay
 heroic-games-launcher-bin

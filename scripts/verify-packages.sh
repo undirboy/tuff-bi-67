@@ -3,11 +3,15 @@
 # Check every name in packages/*.list against the real Arch repositories.
 #
 # Package names drift: things get renamed (vulkan-mesa-layers -> vulkan-swrast),
-# moved to the AUR, or dropped. A typo here only shows up 40 minutes into a
-# build, so check first.
+# moved to the AUR, or dropped. A typo only shows up 40 minutes into a build,
+# so check first.
 #
 #   ./scripts/verify-packages.sh            # uses the local pacman
 #   ./scripts/verify-packages.sh --docker   # uses an archlinux container
+#
+# It syncs into a throwaway database using the repository's own
+# profile/pacman.conf, so it checks against exactly the repositories a build
+# would use - multilib included - and never touches the host's pacman setup.
 #
 # Exits non-zero if any name in the official lists cannot be resolved.
 # aur-optional.list and 90-blackarch.list are reported but never fatal:
@@ -15,8 +19,10 @@
 
 set -uo pipefail
 
+_self="${BASH_SOURCE[0]}"
+[[ -L $_self ]] && _self="$(readlink "$_self")"
 # shellcheck source=scripts/lib/common.sh
-source "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/lib/common.sh"
+source "$(cd -- "$(dirname -- "$_self")" && pwd)/lib/common.sh"
 
 ROOT="$(repo_root)"
 USE_DOCKER=0
@@ -25,26 +31,44 @@ USE_DOCKER=0
 if (( USE_DOCKER )); then
     command -v docker &>/dev/null || die "docker not found"
     log "checking inside an archlinux container"
-    exec docker run --rm -v "$ROOT:/repo:ro" -w /repo archlinux:latest \
-        bash -c "sed -i '/^#\\[multilib\\]/,+1 s/^#//' /etc/pacman.conf && \
-                 pacman -Sy --noconfirm >/dev/null && /repo/scripts/verify-packages.sh"
+    exec docker run --rm -v "$ROOT:/repo:ro" archlinux:latest \
+        bash -c "pacman -Sy --noconfirm --needed >/dev/null 2>&1; cp -r /repo /tmp/repo && /tmp/repo/scripts/verify-packages.sh"
 fi
 
 command -v pacman &>/dev/null || die "pacman not found - run with --docker on a non-Arch host"
 
-log "refreshing the package databases"
-pacman -Sy &>/dev/null || warn "could not refresh databases; results may be stale"
+CONF="$ROOT/profile/pacman.conf"
+[[ -r $CONF ]] || die "missing $CONF"
 
-if ! pacman -Sl multilib &>/dev/null; then
-    warn "[multilib] is not enabled here, so every lib32-* name will look missing"
+DBPATH="$(mktemp -d)"
+trap 'rm -rf "$DBPATH"' EXIT
+
+log "syncing the databases named in profile/pacman.conf (into a throwaway dbpath)"
+INDEX="$DBPATH/index"
+if ! repo_package_index "$CONF" "$DBPATH" > "$INDEX"; then
+    die "could not sync the package databases.
+     On a non-Arch host use --docker. In a container you may first need:
+       pacman-key --init && pacman-key --populate archlinux"
 fi
 
-declare -A KNOWN=()
-while read -r _repo name _ver _rest; do
-    KNOWN[$name]=1
-done < <(pacman -Sl 2>/dev/null)
-
-log "${#KNOWN[@]} packages visible across the enabled repositories"
+# Guard against the failure that made an earlier CI run lie: if a repository
+# silently did not sync, every name from it looks missing. Check that the
+# repositories the build expects are actually present before trusting a
+# single result.
+mapfile -t WANTED_REPOS < <(grep -oP '^\[\K[^]]+' "$CONF" | grep -v '^options$')
+missing_repos=()
+for repo in "${WANTED_REPOS[@]}"; do
+    if ! pacman --config "$CONF" --dbpath "$DBPATH" -Sl "$repo" &>/dev/null; then
+        missing_repos+=("$repo")
+    fi
+done
+if (( ${#missing_repos[@]} )); then
+    die "these repositories did not sync: ${missing_repos[*]}
+     Every package from them would be reported missing, so this run would be
+     meaningless. Fix the mirrors or the keyring and try again."
+fi
+ok "repositories synced: ${WANTED_REPOS[*]}"
+log "$(wc -l < "$INDEX") packages visible across them"
 
 missing_required=0
 shopt -s nullglob
@@ -53,14 +77,9 @@ for list in "$ROOT"/packages/*.list; do
     optional=0
     [[ $base == aur-optional.list || $base == 90-blackarch.list ]] && optional=1
 
-    missing=()
-    while read -r pkg; do
-        [[ -n ${KNOWN[$pkg]-} ]] && continue
-        # A name can also be satisfied as a virtual provider (e.g. 'sh').
-        pacman -Si "$pkg" &>/dev/null && continue
-        [[ -n "$(pacman -Ssq "^${pkg}$" 2>/dev/null)" ]] && continue
-        missing+=("$pkg")
-    done < <(grep -vE '^[[:space:]]*(#|$)' "$list")
+    mapfile -t names < <(grep -vE '^[[:space:]]*(#|$)' "$list")
+    (( ${#names[@]} )) || { ok "$base (empty)"; continue; }
+    mapfile -t missing < <(missing_packages "$INDEX" "$CONF" "$DBPATH" "${names[@]}")
 
     if (( ${#missing[@]} == 0 )); then
         ok "$base"
@@ -77,7 +96,8 @@ done
 printf '\n'
 if (( missing_required )); then
     printf '%s%d package name(s) do not resolve.%s\n' "$C_RED" "$missing_required" "$C_RST"
-    printf 'Search for the new name with: pacman -Ss <partial>   (or check the AUR)\n'
+    printf 'Find the new name with: pacman -Ss <partial>\n'
+    printf 'If it moved to the AUR, move the line to packages/aur-optional.list\n'
     exit 1
 fi
 printf '%sEvery required package name resolves.%s\n' "$C_GRN" "$C_RST"

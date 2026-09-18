@@ -8,7 +8,7 @@ masscan
 arp-scan
 whois
 gobuster
-ffuf
+# ffuf is AUR-only: hexforge-toolkit aur ffuf (or BlackArch's copy)
 dnsmasq
 
 # traffic analysis
@@ -47,7 +47,7 @@ hydra
 # reverse engineering & forensics
 radare2
 rizin
-rizin-cutter
+# Cutter (the rizin GUI) is AUR-only; Ghidra below covers the graphical case
 ghidra
 binwalk
 sleuthkit

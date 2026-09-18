@@ -4,7 +4,9 @@
 alsa-firmware
 alsa-ucm-conf
 b43-fwcutter
-broadcom-wl
+# broadcom-wl is no longer in the official repos; it is AUR-only now
+# (broadcom-wl-dkms). Old Broadcom wireless chips need it installed after
+# first boot: hexforge-toolkit aur broadcom-wl-dkms
 linux-firmware-marvell
 sof-firmware
 upower
