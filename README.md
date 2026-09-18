@@ -138,12 +138,15 @@ and build tooling, with the fix for anything missing:
 ./scripts/check-host.sh
 ```
 
-Package names drift in a rolling distribution. Run this first — it is quick
-and saves you finding a typo 40 minutes into a build:
+Package names drift in a rolling distribution. `build-iso.sh` checks the whole
+set against the repositories before `mkarchiso` starts, so a rename fails in
+seconds rather than forty minutes in — but you can check without building:
 
 ```bash
 ./scripts/verify-packages.sh --docker
 ```
+
+`./scripts/lint.sh` additionally catches conflicting package pairs, offline.
 
 Then see [docs/BUILDING.md](docs/BUILDING.md) for host requirements, build
 times and disk space.

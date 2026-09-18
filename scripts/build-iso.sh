@@ -33,6 +33,7 @@ STAGE_DIR="$ROOT/build/profile"
 KEEP_WORK=0
 LIST_ONLY=0
 STAGE_ONLY=0
+SKIP_PREFLIGHT=0
 USE_DOCKER=0
 IN_CONTAINER=0
 export HEXFORGE_VM_ONLY=0
@@ -53,6 +54,7 @@ Options
   --work DIR         scratch directory (default: work/)
   --keep-work        do not delete the work directory afterwards
   --list-packages    print the resolved package set and exit
+  --skip-preflight   do not check package names against the repositories first
   --stage-only       stage the profile and generate packages.x86_64, then stop
                      (useful for inspecting exactly what mkarchiso would see)
   --docker           run the build inside an archlinux container
@@ -71,6 +73,7 @@ while [[ $# -gt 0 ]]; do
         --work)           WORK_DIR=${2:?}; shift 2 ;;
         --keep-work)      KEEP_WORK=1; shift ;;
         --list-packages)  LIST_ONLY=1; shift ;;
+        --skip-preflight) SKIP_PREFLIGHT=1; shift ;;
         --stage-only)     STAGE_ONLY=1; shift ;;
         --docker)         USE_DOCKER=1; shift ;;
         --in-container)   IN_CONTAINER=1; shift ;;
@@ -197,6 +200,39 @@ if (( STAGE_ONLY )); then
     printf '\nRun mkarchiso against it with:\n  %ssudo mkarchiso -v -w %s -o %s %s%s\n' \
         "$C_DIM" "$WORK_DIR" "$OUT_DIR" "$STAGE_DIR" "$C_RST"
     exit 0
+fi
+
+# -------------------------------------------------------------- preflight --
+
+# Arch is a rolling release: names get renamed, split, or dropped to the AUR.
+# Finding that out 40 minutes into a build is the expensive way. Syncing the
+# databases and checking the whole set takes a few seconds.
+if (( ! SKIP_PREFLIGHT )); then
+    log "checking ${#PACKAGES[@]} package names against the repositories"
+    preflight_db="$WORK_DIR/preflight-db"
+    mkdir -p "$WORK_DIR"
+    index="$WORK_DIR/preflight-index"
+    if repo_package_index "$STAGE_DIR/pacman.conf" "$preflight_db" > "$index"; then
+        mapfile -t MISSING < <(missing_packages "$index" "$STAGE_DIR/pacman.conf" \
+                                                "$preflight_db" "${PACKAGES[@]}")
+        if (( ${#MISSING[@]} )); then
+            printf '\n%s%d package name(s) do not resolve:%s\n' "$C_RED" "${#MISSING[@]}" "$C_RST" >&2
+            printf '  %s\n' "${MISSING[@]}" >&2
+            cat >&2 <<EOF
+
+Nothing has been built. Fix the names in packages/*.list, then try again.
+  find the new name:   pacman -Ss <partial>
+  moved to the AUR:    move the line to packages/aur-optional.list
+  check them all:      ./scripts/verify-packages.sh
+  build anyway:        --skip-preflight
+EOF
+            exit 1
+        fi
+        ok "every package name resolves"
+    else
+        warn "could not sync the package databases for the preflight check; continuing"
+    fi
+    rm -rf "$preflight_db" "$index"
 fi
 
 # ----------------------------------------------------------------- build --

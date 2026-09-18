@@ -84,12 +84,38 @@ failing 40 minutes in on a signature error.
 If you would rather not bake thousands of tools into the image, skip this and
 run `hexforge-toolkit enable-blackarch` inside the live system instead.
 
+## The preflight check
+
+Before `mkarchiso` starts, `build-iso.sh` syncs the package databases into a
+throwaway directory and checks every name in the resolved set. A typo or a
+renamed package fails in seconds rather than forty minutes in, and it reports
+*all* the bad names at once instead of stopping at the first:
+
+```
+2 package name(s) do not resolve:
+  vulkan-mesa-layers
+  python-pwntools
+
+Nothing has been built. Fix the names in packages/*.list, then try again.
+```
+
+Skip it with `--skip-preflight` if you are offline and know the set is good.
+
+A second class of failure — two packages in the set that *conflict* — is
+caught earlier still, by `./scripts/lint.sh`, which needs no network at all.
+
 ## When a build fails
 
 **`error: target not found: <package>`** — a package was renamed or moved to
-the AUR. Run `./scripts/verify-packages.sh --docker`, then fix the name in
+the AUR. The preflight above should have caught this; if you skipped it, run
+`./scripts/verify-packages.sh --docker`, then fix the name in
 `packages/*.list`. If it moved to the AUR, move the line to
 `packages/aur-optional.list`.
+
+**`error: unresolvable package conflicts` or a replacement prompt that hangs**
+— two packages in the set cannot coexist. `./scripts/lint.sh` checks the known
+mutually-exclusive pairs; add the new one to the `CONFLICTS` table there so it
+stays caught.
 
 **`failed to setup loop device` / `mount: permission denied`** — the container
 is not privileged, or you are not root.

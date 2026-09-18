@@ -57,7 +57,6 @@ yara
 clamav
 lynis
 nftables
-iptables-nft
 usbguard
 
 # anonymity & tunnelling

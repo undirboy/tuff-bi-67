@@ -18,4 +18,8 @@ volatility3
 protonup-qt
 goverlay
 heroic-games-launcher-bin
-visual-studio-code-bin
+
+# Not listed: visual-studio-code-bin. The dev set already installs `code`
+# (the OSS build) and the two conflict, so `hexforge-toolkit aur` would stop
+# with a replacement prompt. If you want Microsoft's branded build, remove
+# `code` from packages/40-dev.list first.

@@ -80,6 +80,65 @@ for edition in full security dev gaming lite minimal; do
     done
 done
 
+log "package conflicts"
+# pacstrap aborts (or stops to ask) when two packages in the same transaction
+# conflict. verify-packages.sh cannot see this - it only checks that names
+# exist - so the known mutually-exclusive pairs are checked here instead.
+CONFLICTS=(
+    "gnu-netcat:openbsd-netcat"
+    "virtualbox-guest-utils:virtualbox-guest-utils-nox"
+    "pipewire-jack:jack2"
+    "pipewire-pulse:pulseaudio"
+    "pipewire-alsa:pulseaudio-alsa"
+    "iptables:iptables-nft"
+    "code:visual-studio-code-bin"
+    "vim:gvim"
+    "mesa:mesa-amber"
+    "sdl2:sdl2-compat"
+    "cronie:systemd-cron"
+    "networkmanager:connman"
+)
+
+check_conflicts() {
+    local label=$1; shift
+    local set_file=$1
+    local pair a b hit=0
+    for pair in "${CONFLICTS[@]}"; do
+        a=${pair%%:*}; b=${pair#*:}
+        if grep -qxF "$a" "$set_file" && grep -qxF "$b" "$set_file"; then
+            fail "$label installs both $a and $b, which conflict"
+            hit=1
+        fi
+    done
+    return $hit
+}
+
+conflict_failures=0
+for edition in full security dev gaming lite minimal; do
+    for desktop in kde xfce none; do
+        mapfile -t lists < <(edition_lists "$edition" "$desktop" "$ROOT/packages" 2>/dev/null)
+        resolve_packages "${lists[@]}" 2>/dev/null > /tmp/hexforge-lint-set.$$
+        check_conflicts "$edition/$desktop" /tmp/hexforge-lint-set.$$ || conflict_failures=1
+    done
+done
+rm -f /tmp/hexforge-lint-set.$$
+
+# The AUR list is installed later onto a system that already has the baked
+# set, so a conflict there bites at `hexforge-toolkit aur` time instead.
+all_baked="$(cat packages/[0-9]*.list | grep -vE '^[[:space:]]*(#|$)' | sort -u)"
+while read -r aur_pkg; do
+    for pair in "${CONFLICTS[@]}"; do
+        a=${pair%%:*}; b=${pair#*:}
+        if [[ $aur_pkg == "$b" ]] && grep -qxF "$a" <<<"$all_baked"; then
+            fail "aur-optional.list offers $b, which conflicts with $a in the image"
+        fi
+        if [[ $aur_pkg == "$a" ]] && grep -qxF "$b" <<<"$all_baked"; then
+            fail "aur-optional.list offers $a, which conflicts with $b in the image"
+        fi
+    done
+done < <(grep -vE '^[[:space:]]*(#|$)' packages/aur-optional.list)
+(( conflict_failures )) || pass "no known conflicting pairs in any edition"
+
 log "archiso profile"
 for required in profile/profiledef.sh profile/pacman.conf profile/grub/grub.cfg \
                 profile/syslinux/syslinux.cfg profile/airootfs/etc/mkinitcpio.d/linux.preset; do

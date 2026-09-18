@@ -69,3 +69,26 @@ human_size() {
         printf "%.1f %s", b, u[i]
     }'
 }
+
+# Names visible across the repositories a given pacman.conf enables, synced
+# into a throwaway database so nothing on the build host is touched.
+# Usage: repo_package_index <conf> <dbpath>
+repo_package_index() {
+    local conf=$1 dbpath=$2
+    mkdir -p "$dbpath"
+    pacman --config "$conf" --dbpath "$dbpath" -Sy &>/dev/null || return 1
+    pacman --config "$conf" --dbpath "$dbpath" -Sl 2>/dev/null | awk '{print $2}'
+}
+
+# Print the names in $3.. that the index in $1 does not contain. A name can
+# also be satisfied by a virtual provider, so unknown names get a second look.
+missing_packages() {
+    local index_file=$1 conf=$2 dbpath=$3
+    shift 3
+    local pkg
+    for pkg in "$@"; do
+        grep -qxF "$pkg" "$index_file" && continue
+        pacman --config "$conf" --dbpath "$dbpath" -Si "$pkg" &>/dev/null && continue
+        printf '%s\n' "$pkg"
+    done
+}
