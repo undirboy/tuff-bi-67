@@ -44,12 +44,9 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Verify package names first
-        run: |
-          sed -i '/^#\[multilib\]/,+1 s/^#//' /etc/pacman.conf
-          pacman -Sy --noconfirm
-          ./scripts/verify-packages.sh
-
+      # No separate verification step: build-iso.sh pre-flights every package
+      # name against the repositories itself, using the staged pacman.conf,
+      # before mkarchiso starts.
       - name: Build
         run: |
           ./scripts/build-iso.sh \
