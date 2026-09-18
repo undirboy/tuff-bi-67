@@ -105,7 +105,7 @@ if (( USE_DOCKER )); then
     exec docker run --rm --privileged \
         -v "$ROOT:/repo" -w /repo \
         archlinux:latest \
-        bash -c "pacman -Sy --noconfirm --needed archiso git && \
+        bash -c "pacman -Sy --noconfirm --needed archiso git grub edk2-shell && \
                  /repo/scripts/build-iso.sh --in-container \
                    --edition '$EDITION' --desktop '$DESKTOP' \
                    $( ((HEXFORGE_VM_ONLY))        && echo --vm-only ) \
@@ -124,9 +124,59 @@ if (( IN_CONTAINER )); then
     fi
 fi
 
+# mkarchiso shells out to a different set of tools depending on the boot
+# modes the profile asks for, and several of them are only *optional*
+# dependencies of the archiso package. Every one of these failures otherwise
+# lands at the very end of the build, after the expensive part.
+check_host_tools() {
+    local -a bootmodes=()
+    # Read the boot modes from the profile itself so this cannot drift.
+    mapfile -t bootmodes < <(
+        cd "$PROFILE_SRC" || exit
+        # shellcheck disable=SC2034
+        declare -A file_permissions
+        # shellcheck disable=SC1091
+        source ./profiledef.sh
+        printf '%s\n' "${bootmodes[@]}"
+    )
+
+    local -A needed=(
+        [mkarchiso]="archiso"
+        [pacstrap]="arch-install-scripts"
+        [mksquashfs]="squashfs-tools"
+        [xorriso]="libisoburn"
+        [mmd]="mtools"
+        [mkfs.fat]="dosfstools"
+    )
+    local mode
+    for mode in "${bootmodes[@]}"; do
+        case $mode in
+            *.grub.*)     needed[grub-mkstandalone]="grub" ;;
+            *.syslinux.*) needed[isohybrid]="syslinux" ;;
+        esac
+    done
+
+    local -a missing=()
+    local tool
+    for tool in "${!needed[@]}"; do
+        command -v "$tool" &>/dev/null || missing+=("$tool (${needed[$tool]})")
+    done
+
+    if (( ${#missing[@]} )); then
+        printf '%serror:%s mkarchiso needs these, and they are not installed:\n' "$C_RED" "$C_RST" >&2
+        printf '  %s\n' "${missing[@]}" >&2
+        printf '\nInstall them:\n  sudo pacman -S --needed %s\n\n' \
+            "$(printf '%s\n' "${missing[@]}" | sed 's/.*(\(.*\))/\1/' | sort -u | tr '\n' ' ')" >&2
+        printf 'Note that grub is only an *optional* dependency of archiso, so\n' >&2
+        printf 'installing archiso alone is not enough for UEFI boot modes.\n' >&2
+        exit 1
+    fi
+    ok "host build tools present"
+}
+
 if (( ! STAGE_ONLY )); then
     [[ $EUID -eq 0 ]] || die "mkarchiso needs root. Re-run with sudo, or use --docker."
-    command -v mkarchiso &>/dev/null || die "mkarchiso not found. Install the 'archiso' package, or use --docker."
+    check_host_tools
     [[ -e /dev/loop-control ]] || warn "no /dev/loop-control: the build will fail unless the container is privileged"
 fi
 

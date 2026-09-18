@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | Host OS | Arch Linux (or any distro + Docker, see below) |
-| Packages | `archiso` (pulls in `arch-install-scripts`, `squashfs-tools`, `libisoburn`) |
+| Packages | `archiso grub syslinux edk2-shell` — note that **`grub` is only an optional dependency of archiso**, so installing `archiso` alone leaves you without `grub-mkstandalone` and the UEFI boot modes fail at the very end of the build. `build-iso.sh` checks for all of them before it starts. |
 | Privileges | root — `mkarchiso` mounts loop devices and chroots |
 | Disk | 25 GB free for a `full` build, 40 GB with `--with-blackarch` |
 | Network | the whole package set is downloaded; `full` is roughly 6–8 GB |
@@ -14,7 +14,7 @@
 ## On Arch
 
 ```bash
-sudo pacman -S archiso
+sudo pacman -S archiso grub syslinux edk2-shell
 git clone https://github.com/undirboy/tuff-bi-67 && cd tuff-bi-67
 
 ./scripts/verify-packages.sh      # check names resolve before committing an hour
