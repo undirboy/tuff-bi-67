@@ -8,10 +8,28 @@ After booting, run **`hexforge-vmcheck`**. It reports the hypervisor, the
 graphics driver, 3D acceleration, the guest agent and folder sharing, and
 prints the host-side fix for anything that is wrong.
 
+## Does your machine qualify?
+
+```bash
+./scripts/check-host.sh
+```
+
+Run it on the **host**, not in a guest. It reports CPU virtualisation
+extensions, KVM access, RAM, free disk, GPU driver and host 3D, which
+hypervisors are installed, whether OVMF is present, and whether you can build
+the ISO here — then prints a verdict, the blockers, and a suggested first
+build sized to your RAM.
+
+The one thing it cannot work around is hardware virtualisation being disabled
+in firmware. On most prebuilt PCs it ships off; the setting is called
+**VT-x**, **Intel Virtualization Technology**, **SVM Mode** or **AMD-V** in
+the BIOS/UEFI setup screen.
+
 ## Recommended resources
 
 | Edition | vCPU | RAM | Disk |
 |---|---|---|---|
+| `lite` | 2 | 4 GB | 25 GB |
 | `minimal` / `dev` | 2 | 4 GB | 30 GB |
 | `security` | 4 | 8 GB | 60 GB |
 | `gaming` / `full` | 4–8 | 8–16 GB | 80 GB+ |
@@ -57,6 +75,30 @@ Same machine, clickable. The settings that matter:
 
 3D acceleration in virt-manager requires Spice + OpenGL *and* a virtio video
 device. Miss either and `hexforge-vmcheck` will report llvmpipe.
+
+## macOS hosts (Intel)
+
+`scripts/run-vm.sh` handles macOS: it uses **HVF** (Hypervisor.framework)
+instead of KVM, the **cocoa** display, and Homebrew's UEFI firmware.
+
+```bash
+brew install qemu
+./scripts/run-vm.sh --disk vm/hexforge.qcow2 --size 40G
+```
+
+Two things to know:
+
+- **No 3D, ever.** There is no virglrenderer on macOS and cocoa has no GL
+  passthrough, so guest graphics are software-rendered whatever you pass.
+  Fine for the desktop and the tooling; it rules out Proton and Vulkan games.
+- **Apple silicon cannot run this image usefully.** HexForge is x86_64; on an
+  M-series Mac it can only be emulated, which is far too slow for a desktop.
+  `check-host.sh` reports this as a blocker rather than letting you find out
+  after a 40-minute build.
+
+[UTM](https://mac.getutm.app) and VMware Fusion (free for personal use) are
+good GUI alternatives on Intel Macs. See [LOW-SPEC.md](LOW-SPEC.md) for
+settings on an 8 GB dual-core machine.
 
 ## VirtualBox
 

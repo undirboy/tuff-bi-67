@@ -19,6 +19,7 @@ Files are numbered by concern, and the edition decides which are used:
 | `10-hardware.list` | all, unless `--vm-only` |
 | `20-vm-guest.list` | all |
 | `30-desktop-<de>.list` | whichever `--desktop` you picked |
+| `45-lite.list` | lite only — a small curated hacking/coding set |
 | `40-dev.list` | dev, security, full |
 | `50-security.list` | security, full |
 | `60-gaming.list` | gaming, full |

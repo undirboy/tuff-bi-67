@@ -63,6 +63,9 @@ wireless-regdb
 wireless_tools
 wpa_supplicant
 
+# memory: compressed swap in RAM, which matters most on small guests
+zram-generator
+
 # shell & terminal basics
 bash-completion
 diffutils

@@ -1,0 +1,72 @@
+# The `lite` edition: a usable hacking + coding workstation inside a 4 GB,
+# 2-vCPU guest. Sized for old laptops (a dual-core i5 MacBook Air, say) where
+# the host also needs to stay responsive.
+#
+# What is deliberately NOT here: Ghidra and Cutter (JVM/Qt, want 4 GB to
+# themselves), the whole gaming stack, Docker and libvirt, Chromium, GIMP,
+# OBS, VS Code. Add any of them later with pacman; nothing stops you.
+
+# coding
+git
+base-devel
+python
+python-pip
+python-virtualenv
+python-requests
+neovim
+tmux
+jq
+ripgrep
+fd
+fzf
+bat
+htop
+unzip
+p7zip
+wget
+curl
+man-db
+
+# recon and scanning
+nmap
+whois
+bind
+arp-scan
+gobuster
+ffuf
+
+# traffic
+wireshark-cli
+tcpdump
+mitmproxy
+socat
+openbsd-netcat
+sshuttle
+
+# web and exploitation
+sqlmap
+metasploit
+exploitdb
+impacket
+
+# passwords
+john
+hydra
+
+# reversing (CLI only - no GUI disassembler at this size)
+radare2
+binwalk
+
+# tunnelling
+proxychains-ng
+tor
+torsocks
+openvpn
+wireguard-tools
+
+# scripting
+python-scapy
+
+# light browser + editor for the desktop
+firefox
+keepassxc

@@ -53,7 +53,7 @@ ${BOLD}hexforge-install${RST} - install HexForge Linux to a disk
   --hostname NAME     system hostname (default: $HOSTNAME_)
   --user NAME         account to create (prompted if omitted)
   --fs ext4|btrfs     root filesystem (default: $FSTYPE; btrfs gets @ / @home subvolumes)
-  --edition NAME      package set: full, security, dev, gaming, minimal (default: $EDITION)
+  --edition NAME      package set: full, security, dev, gaming, lite, minimal (default: $EDITION)
   --desktop NAME      kde, xfce or none (default: $DESKTOP)
   --swap SIZE         swapfile size, e.g. 8G (default: none)
   --timezone ZONE     e.g. Europe/Berlin (default: detected from the network, else UTC)
@@ -122,6 +122,7 @@ resolve_packages() {
     [[ $DESKTOP != none ]] && lists+=("$PKGDIR/30-desktop-$DESKTOP.list")
     case $EDITION in
         minimal)  ;;
+        lite)     lists+=("$PKGDIR/45-lite.list") ;;
         dev)      lists+=("$PKGDIR/40-dev.list" "$PKGDIR/70-extras.list") ;;
         security) lists+=("$PKGDIR/40-dev.list" "$PKGDIR/50-security.list" "$PKGDIR/70-extras.list") ;;
         gaming)   lists+=("$PKGDIR/60-gaming.list" "$PKGDIR/70-extras.list") ;;

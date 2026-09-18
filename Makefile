@@ -23,7 +23,7 @@ ifeq ($(DOCKER),1)
 BUILD_FLAGS += --docker
 endif
 
-.PHONY: help iso iso-vm iso-security iso-docker packages verify lint run run-install clean distclean
+.PHONY: help check iso iso-lite iso-vm iso-security iso-docker packages verify lint run run-install clean distclean
 
 help: ## Show this help
 	@printf '\033[1mHexForge Linux %s\033[0m\n\n' '$(VERSION)'
@@ -32,8 +32,14 @@ help: ## Show this help
 	@printf '\nVariables: EDITION=%s DESKTOP=%s VM_ONLY=0 BLACKARCH=0 NVIDIA=0 DOCKER=0\n' '$(EDITION)' '$(DESKTOP)'
 	@printf 'Example:   make iso EDITION=security DESKTOP=xfce VM_ONLY=1\n'
 
+check: ## Can this machine build and run HexForge?
+	./scripts/check-host.sh
+
 iso: ## Build an ISO (needs Arch + root, or DOCKER=1)
 	./scripts/build-iso.sh $(BUILD_FLAGS)
+
+iso-lite: ## Build for a small machine: 2 vCPU / 4 GB guest, XFCE, no gaming
+	$(MAKE) iso EDITION=lite DESKTOP=xfce VM_ONLY=1
 
 iso-vm: ## Build a trimmed VM-only ISO
 	$(MAKE) iso VM_ONLY=1

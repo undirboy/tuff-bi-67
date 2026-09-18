@@ -44,7 +44,7 @@ usage() {
     cat <<EOF
 
 Options
-  --edition NAME     full (default), security, dev, gaming, minimal
+  --edition NAME     full (default), security, dev, gaming, lite, minimal
   --desktop NAME     kde (default), xfce, none
   --vm-only          drop hardware firmware; smaller ISO for VM-only use
   --with-blackarch   add the BlackArch repo and four large tool groups

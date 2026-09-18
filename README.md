@@ -10,7 +10,7 @@ you know exactly what is in it and can change any of it.
 
 ```
 git clone https://github.com/undirboy/tuff-bi-67 && cd tuff-bi-67
-./scripts/lint.sh                 # sanity-check the profile
+./scripts/check-host.sh           # can this machine build and run it?
 sudo ./scripts/build-iso.sh       # build (Arch host) …
 ./scripts/build-iso.sh --docker   # … or anywhere with Docker
 ./scripts/run-vm.sh               # boot it in QEMU/KVM
@@ -40,6 +40,7 @@ you can pick how much you want:
 | Edition | Contents | Rough ISO size |
 |---|---|---|
 | `minimal` | base + desktop + VM guest tools | ~2 GB |
+| `lite` | + a curated hacking/coding toolset, sized for a 2-vCPU / 4 GB guest | ~2.5 GB |
 | `dev` | + toolchains, editors, containers | ~4 GB |
 | `security` | + dev, + the security toolkit | ~6 GB |
 | `gaming` | + Steam/Proton/Wine/emulation | ~5 GB |
@@ -53,6 +54,11 @@ make packages EDITION=gaming          # see exactly what that resolves to
 
 `--vm-only` drops bare-metal firmware blobs (~400 MB) from an image you will
 only ever boot in a hypervisor.
+
+**On an older laptop?** `make iso-lite` builds an XFCE image that runs in a
+2-vCPU / 4 GB guest — a dual-core i5 with 8 GB of RAM handles it fine. The
+security and coding tooling all works there; 3D games do not.
+[docs/LOW-SPEC.md](docs/LOW-SPEC.md) has the numbers.
 
 ## Running it
 
@@ -104,6 +110,7 @@ profile/           the archiso profile
   airootfs/        files laid over the live root filesystem
   grub/ syslinux/  UEFI and BIOS boot menus
 scripts/
+  check-host.sh    does your machine meet the requirements? run this first
   build-iso.sh     stages the profile, generates packages.x86_64, runs mkarchiso
   run-vm.sh        QEMU launcher
   verify-packages.sh   checks every package name against the real repos
@@ -115,6 +122,13 @@ docs/              per-topic documentation
 decide what goes in it. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Before your first build
+
+Check the machine you are on — CPU virtualisation, RAM, disk, GPU, hypervisor
+and build tooling, with the fix for anything missing:
+
+```bash
+./scripts/check-host.sh
+```
 
 Package names drift in a rolling distribution. Run this first — it is quick
 and saves you finding a typo 40 minutes into a build:
@@ -130,6 +144,7 @@ times and disk space.
 
 - [BUILDING.md](docs/BUILDING.md) — build the ISO, on Arch or anywhere else
 - [RUNNING-VMS.md](docs/RUNNING-VMS.md) — QEMU, VirtualBox, VMware, Hyper-V, Proxmox
+- [LOW-SPEC.md](docs/LOW-SPEC.md) — older laptops: 8 GB, dual core, Intel Macs
 - [GAMING.md](docs/GAMING.md) — what runs in a VM, and GPU passthrough when it doesn't
 - [SECURITY-TOOLKIT.md](docs/SECURITY-TOOLKIT.md) — what's included, BlackArch, building a lab
 - [INSTALL.md](docs/INSTALL.md) — installing to a disk
