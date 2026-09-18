@@ -36,8 +36,11 @@ jobs:
           rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
           df -h /
 
-      - name: Install archiso
-        run: pacman -Sy --noconfirm --needed archiso git
+      - name: Install the build tools
+        # grub is only an *optional* dependency of archiso, and the profile's
+        # uefi-x64.grub.* boot modes need grub-mkstandalone. edk2-shell
+        # provides the UEFI shell the GRUB menu offers.
+        run: pacman -Sy --noconfirm --needed archiso git grub syslinux edk2-shell
 
       - uses: actions/checkout@v4
 
