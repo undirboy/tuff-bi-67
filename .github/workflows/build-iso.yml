@@ -11,7 +11,7 @@ on:
         description: 'Package edition'
         type: choice
         default: minimal
-        options: [minimal, dev, security, gaming, full]
+        options: [minimal, lite, dev, security, gaming, full]
       desktop:
         description: 'Desktop environment'
         type: choice
