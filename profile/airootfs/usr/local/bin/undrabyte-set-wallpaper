@@ -5,7 +5,7 @@
 # their own - so it never fights a wallpaper you chose yourself.
 
 set -uo pipefail
-readonly WALL=/usr/share/backgrounds/undrabyte/undrabyte-default.svg
+readonly WALL=/usr/share/backgrounds/undrabyte/undrabyte-default.png
 [[ -r $WALL ]] || exit 0
 command -v xfconf-query &>/dev/null || exit 0
 
