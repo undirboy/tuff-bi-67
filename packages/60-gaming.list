@@ -2,6 +2,9 @@
 
 steam
 lutris
+# Epic and GOG have no native Linux client. Heroic (GUI) and Legendary (CLI)
+# are AUR-only, so they are not baked in; `hexforge-game epic` installs them
+# on demand. See packages/aur-optional.list.
 gamemode
 lib32-gamemode
 gamescope

@@ -98,6 +98,8 @@ menu_play() {
     cat <<'MENU'
 run|Check the gaming stack|Drivers, Vulkan, gamemode, limits|hexforge-game check
 gui|Steam|Launched with gamemode and MangoHud|hexforge-game steam
+run|Epic / GOG (Heroic)|Launch Heroic, or install it on first use|hexforge-game epic
+run|Epic (Legendary CLI)|The Epic launcher on the command line|hexforge-game legendary
 gui|Lutris|Wine and non-Steam game management|lutris
 gui|RetroArch|Emulation frontend|retroarch
 run|Launch options and VM advice|What works in a VM, and what needs passthrough|hexforge-game tips

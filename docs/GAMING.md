@@ -44,6 +44,28 @@ PROTON_ENABLE_NVAPI=1 %command%                 # DLSS on NVIDIA passthrough
 MangoHud toggles with **Right Shift + F12**; the overlay is configured in
 `~/.config/mangohud/MangoHud.conf`.
 
+## Epic, GOG and stores other than Steam
+
+Steam is the only store with a native Linux client, and it is baked in. Epic,
+GOG and Amazon do not ship one, so they run through community launchers:
+
+- **Heroic** — a GUI for Epic + GOG + Amazon; installs and runs their games
+  through Proton/Wine, the same way Steam does.
+- **Legendary** — the Epic launcher as a command-line tool; scriptable and
+  fine over SSH.
+
+Both are AUR-only, so they are not in the ISO (an AUR build cannot be part of
+a reproducible image). `hexforge-game` installs them on demand:
+
+```bash
+hexforge-game epic          # launch Heroic, or install it on first use
+hexforge-game legendary     # the Epic CLI
+```
+
+Because these run Epic/GOG titles through Proton or Wine, everything below
+about VM graphics — Vulkan, virtio-gpu, passthrough — applies to them exactly
+as it does to Steam.
+
 ## Getting 3D in QEMU
 
 ```bash

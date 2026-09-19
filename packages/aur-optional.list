@@ -21,7 +21,9 @@ game-devices-udev
 broadcom-wl-dkms
 protonup-qt
 goverlay
+# game stores with no native Linux client (installed by hexforge-game)
 heroic-games-launcher-bin
+legendary
 
 # Not listed: visual-studio-code-bin. The dev set already installs `code`
 # (the OSS build) and the two conflict, so `hexforge-toolkit aur` would stop
