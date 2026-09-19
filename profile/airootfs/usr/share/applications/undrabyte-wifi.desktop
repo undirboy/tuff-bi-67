@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=HexForge WiFi Exercise
+Name=UndraByte WiFi Exercise
 Comment=Capture and crack a WPA handshake from an access point you own
-Exec=sh -c 'hexforge-wifi; echo; read -p "Press Enter to close " _'
+Exec=sh -c 'undrabyte-wifi; echo; read -p "Press Enter to close " _'
 Icon=network-wireless
 Terminal=true
 Categories=System;Network;

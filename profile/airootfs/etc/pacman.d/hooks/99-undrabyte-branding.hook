@@ -15,6 +15,6 @@ Type = Package
 Target = filesystem
 
 [Action]
-Description = Applying HexForge branding to /usr/lib/os-release...
+Description = Applying UndraByte branding to /usr/lib/os-release...
 When = PostTransaction
-Exec = /usr/bin/install -Dm0644 /usr/local/lib/hexforge/os-release /usr/lib/os-release
+Exec = /usr/bin/install -Dm0644 /usr/local/lib/undrabyte/os-release /usr/lib/os-release

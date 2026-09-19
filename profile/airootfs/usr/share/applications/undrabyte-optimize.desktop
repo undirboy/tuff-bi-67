@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=HexForge Optimiser
+Name=UndraByte Optimiser
 Comment=Tune the system for bare metal or for a virtual machine
-Exec=sh -c 'hexforge-optimize status; echo; read -p "Press Enter to close " _'
+Exec=sh -c 'undrabyte-optimize status; echo; read -p "Press Enter to close " _'
 Icon=preferences-system-performance
 Terminal=true
 Categories=System;Settings;

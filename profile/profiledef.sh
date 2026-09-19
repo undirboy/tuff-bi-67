@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 #
-# HexForge Linux - archiso profile definition.
+# UndraByte Linux - archiso profile definition.
 #
 # mkarchiso sources this file; every variable below is part of archiso's
 # documented profile API (see `man 1 mkarchiso` and /usr/share/archiso).
@@ -20,11 +20,11 @@ else
     iso_version="$(date +%Y.%m.%d)"
 fi
 
-iso_name="hexforge"
-iso_label="HEXFORGE_$(date +%Y%m)"
-iso_publisher="HexForge Linux <https://github.com/undirboy/tuff-bi-67>"
-iso_application="HexForge Linux - hacking, coding and gaming live system"
-install_dir="hexforge"
+iso_name="undrabyte"
+iso_label="UNDRABYTE_$(date +%Y%m)"
+iso_publisher="UndraByte Linux <https://github.com/undirboy/tuff-bi-67>"
+iso_application="UndraByte Linux - hacking, coding and gaming live system"
+install_dir="undrabyte"
 arch="x86_64"
 pacman_conf="pacman.conf"
 
@@ -52,14 +52,14 @@ file_permissions=(
   ["/etc/sudoers.d"]="0:0:750"
   ["/etc/sudoers.d/10-wheel"]="0:0:440"
   ["/root"]="0:0:750"
-  ["/usr/local/bin/hexforge"]="0:0:755"
-  ["/usr/local/bin/hexforge-welcome"]="0:0:755"
-  ["/usr/local/bin/hexforge-theme"]="0:0:755"
-  ["/usr/local/bin/hexforge-optimize"]="0:0:755"
-  ["/usr/local/bin/hexforge-toolkit"]="0:0:755"
-  ["/usr/local/bin/hexforge-install"]="0:0:755"
-  ["/usr/local/bin/hexforge-vmcheck"]="0:0:755"
-  ["/usr/local/bin/hexforge-game"]="0:0:755"
-  ["/usr/local/bin/hexforge-wifi"]="0:0:755"
-  ["/usr/lib/hexforge/live-setup.sh"]="0:0:755"
+  ["/usr/local/bin/undrabyte"]="0:0:755"
+  ["/usr/local/bin/undrabyte-welcome"]="0:0:755"
+  ["/usr/local/bin/undrabyte-theme"]="0:0:755"
+  ["/usr/local/bin/undrabyte-optimize"]="0:0:755"
+  ["/usr/local/bin/undrabyte-toolkit"]="0:0:755"
+  ["/usr/local/bin/undrabyte-install"]="0:0:755"
+  ["/usr/local/bin/undrabyte-vmcheck"]="0:0:755"
+  ["/usr/local/bin/undrabyte-game"]="0:0:755"
+  ["/usr/local/bin/undrabyte-wifi"]="0:0:755"
+  ["/usr/lib/undrabyte/live-setup.sh"]="0:0:755"
 )

@@ -1,7 +1,7 @@
 # Installing to a disk
 
 Live booting is fine for a rescue or a demo, but nothing survives a reboot.
-`hexforge-install` puts HexForge on a real (or virtual) disk.
+`undrabyte-install` puts UndraByte on a real (or virtual) disk.
 
 ## What it does
 
@@ -14,7 +14,7 @@ It runs the same sequence a careful person runs by hand from the Arch wiki:
 5. Generate `/etc/fstab` with `genfstab -U`
 6. Configure the chroot: locale, timezone, hostname, initramfs, user, groups
 7. Install and configure GRUB
-8. Copy the HexForge configuration and the `hexforge-*` tools across
+8. Copy the UndraByte configuration and the `undrabyte-*` tools across
 
 Nothing is hidden. Every destructive command is printed before it runs, and
 `--dry-run` prints the entire plan — including the chroot script — without
@@ -24,13 +24,13 @@ touching anything.
 
 ```bash
 # See the plan first. Always.
-sudo hexforge-install --dry-run --disk /dev/vda
+sudo undrabyte-install --dry-run --disk /dev/vda
 
 # Typical VM install
-sudo hexforge-install --disk /dev/vda --user you --hostname forge-vm
+sudo undrabyte-install --disk /dev/vda --user you --hostname forge-vm
 
 # Btrfs, swapfile, encrypted, XFCE, security tools only
-sudo hexforge-install --disk /dev/nvme0n1 --fs btrfs --swap 16G --encrypt \
+sudo undrabyte-install --disk /dev/nvme0n1 --fs btrfs --swap 16G --encrypt \
                       --edition security --desktop xfce --user you
 ```
 
@@ -39,7 +39,7 @@ Options:
 ```
 --disk DEV         target disk (prompted if omitted)
 --user NAME        account to create (prompted if omitted)
---hostname NAME    default: hexforge
+--hostname NAME    default: undrabyte
 --fs ext4|btrfs    default: ext4
 --edition NAME     full, security, dev, gaming, minimal
 --desktop NAME     kde, xfce, none
@@ -63,33 +63,33 @@ reboot
 Remove the installation medium as the machine restarts. Then:
 
 ```bash
-hexforge-vmcheck            # is the hypervisor integration healthy?
-hexforge-toolkit status     # what's enabled
+undrabyte-vmcheck            # is the hypervisor integration healthy?
+undrabyte-toolkit status     # what's enabled
 sudo pacman -Syu            # you are on a rolling release now
 ```
 
 ## Prefer Arch's own installer?
 
 ```bash
-sudo hexforge-install --archinstall
+sudo undrabyte-install --archinstall
 ```
 
-You get `archinstall`'s guided menus. The HexForge package sets are not
+You get `archinstall`'s guided menus. The UndraByte package sets are not
 applied automatically that way — add them afterwards:
 
 ```bash
-sudo pacman -S --needed - < /usr/local/share/hexforge/packages/50-security.list
+sudo pacman -S --needed - < /usr/local/share/undrabyte/packages/50-security.list
 ```
 
 (That works because pacman ignores `#` comments and blank lines on stdin.)
 
 ## Dual-booting
 
-`hexforge-install` erases the whole target disk; it does not resize or share
+`undrabyte-install` erases the whole target disk; it does not resize or share
 one. To dual-boot, partition ahead of time with GParted, then install by hand
 following the [Arch installation
 guide](https://wiki.archlinux.org/title/Installation_guide) — the package
-lists in `/usr/local/share/hexforge/packages/` are the only HexForge-specific
+lists in `/usr/local/share/undrabyte/packages/` are the only UndraByte-specific
 part, and `os-prober` will pick up the other system when you run
 `grub-mkconfig`.
 

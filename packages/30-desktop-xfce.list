@@ -7,7 +7,7 @@ lightdm-gtk-greeter
 lightdm-gtk-greeter-settings
 network-manager-applet
 
-# themes: the dark defaults hexforge-theme switches between
+# themes: the dark defaults undrabyte-theme switches between
 breeze-gtk
 breeze-icons
 gnome-themes-extra

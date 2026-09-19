@@ -1,11 +1,11 @@
 # The launcher, dark mode and the desktop
 
-## `hexforge` — the launcher
+## `undrabyte` — the launcher
 
 ```bash
-hexforge              # open it
-hexforge security     # jump straight to a section
-hexforge --list       # print the whole menu tree, no TUI
+undrabyte              # open it
+undrabyte security     # jump straight to a section
+undrabyte --list       # print the whole menu tree, no TUI
 ```
 
 One place to reach everything on the image: the security toolkit, the
@@ -26,21 +26,21 @@ Two details that make it pleasant rather than merely functional:
 - **GUI applications launch detached**, so the launcher stays up; terminal
   tools take over the screen and hand it back when they exit.
 
-It appears in the desktop applications menu as *HexForge Launcher*, and on the
-live desktop as *HexForge — start here*.
+It appears in the desktop applications menu as *UndraByte Launcher*, and on the
+live desktop as *UndraByte — start here*.
 
-## `hexforge-theme` — dark mode
+## `undrabyte-theme` — dark mode
 
-The image is **dark by default**. `hexforge-live-setup.service` applies the
+The image is **dark by default**. `undrabyte-live-setup.service` applies the
 theme before the display manager starts, so you never see a white flash and
 then have to go hunting through settings dialogues.
 
 ```bash
-hexforge-theme          # what is set now
-hexforge-theme dark
-hexforge-theme light
-hexforge-theme toggle   # or press `t` anywhere in the launcher
-hexforge-theme dark --system    # also write it into /etc/skel (root)
+undrabyte-theme          # what is set now
+undrabyte-theme dark
+undrabyte-theme light
+undrabyte-theme toggle   # or press `t` anywhere in the launcher
+undrabyte-theme dark --system    # also write it into /etc/skel (root)
 ```
 
 A half-themed desktop — GTK apps dark, Qt apps blinding white — is worse than
@@ -60,7 +60,7 @@ are installed, Adwaita-dark otherwise. A theme name that is not installed
 looks worse than no theme at all, so it checks first.
 
 Change the default for built images in
-`profile/airootfs/etc/hexforge/theme` (`dark` or `light`).
+`profile/airootfs/etc/undrabyte/theme` (`dark` or `light`).
 
 ## The desktop defaults
 
@@ -75,7 +75,7 @@ doing the expensive parts.
 **XFCE** — Breeze-Dark for both GTK and xfwm4, Noto Sans 10, JetBrains Mono
 Nerd Font for monospace, slight hinting with RGB subpixel order, event sounds
 off. Compositing starts **off**, because it costs real frames when the GPU is
-llvmpipe; `hexforge-optimize` turns it back on where there is hardware
+llvmpipe; `undrabyte-optimize` turns it back on where there is hardware
 acceleration to spend.
 
 **Both** — no desktop search indexer running by default on a small image (see
@@ -92,12 +92,12 @@ profile/airootfs/etc/skel/.config/kdeglobals                     KDE colours
 profile/airootfs/etc/skel/.config/kwinrc                         KDE effects
 profile/airootfs/etc/skel/.config/xfce4/xfconf/…/xsettings.xml   XFCE theme and fonts
 profile/airootfs/etc/skel/.config/xfce4/xfconf/…/xfwm4.xml       XFCE window manager
-profile/airootfs/etc/hexforge/theme                              default mode
-profile/airootfs/usr/share/applications/hexforge*.desktop        menu entries
+profile/airootfs/etc/undrabyte/theme                              default mode
+profile/airootfs/usr/share/applications/undrabyte*.desktop        menu entries
 ```
 
 To add an entry to the launcher, edit the matching `menu_*` function in
-`profile/airootfs/usr/local/bin/hexforge`. Each line is
+`profile/airootfs/usr/local/bin/undrabyte`. Each line is
 `kind|label|description|command`, where `kind` is `run` (takes over the
 terminal), `gui` (launches detached), `menu` (a submenu) or `note` (a
 separator).

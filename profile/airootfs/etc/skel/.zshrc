@@ -1,4 +1,4 @@
-# ~/.zshrc - HexForge defaults
+# ~/.zshrc - UndraByte defaults
 #
 # Self-contained on purpose. grml-zsh-config owns /etc/skel/.zshrc, and the
 # overlay is laid down before pacstrap, so shipping both is a file conflict
@@ -16,7 +16,7 @@ alias ..='cd ..'
 command -v eza  &>/dev/null && alias ls='eza --icons --group-directories-first'
 command -v bat  &>/dev/null && alias cat='bat --paging=never'
 command -v btop &>/dev/null && alias top='btop'
-alias game='hexforge-game run'
+alias game='undrabyte-game run'
 
 export EDITOR=nvim
 export VISUAL=nvim
@@ -25,8 +25,8 @@ export PATH="$HOME/.local/bin:$PATH"
 command -v starship &>/dev/null && eval "$(starship init zsh)"
 command -v direnv   &>/dev/null && eval "$(direnv hook zsh)"
 
-if [[ -z ${HEXFORGE_GREETED-} && ! -e /run/hexforge-greeted ]]; then
-    export HEXFORGE_GREETED=1
-    command -v hexforge-welcome &>/dev/null && hexforge-welcome
-    : > /run/hexforge-greeted 2>/dev/null || true
+if [[ -z ${UNDRABYTE_GREETED-} && ! -e /run/undrabyte-greeted ]]; then
+    export UNDRABYTE_GREETED=1
+    command -v undrabyte-welcome &>/dev/null && undrabyte-welcome
+    : > /run/undrabyte-greeted 2>/dev/null || true
 fi

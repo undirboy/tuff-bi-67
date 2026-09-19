@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=HexForge Game Check
+Name=UndraByte Game Check
 Comment=Drivers, Vulkan, gamemode and launch options
-Exec=sh -c 'hexforge-game check; echo; hexforge-game tips; echo; read -p "Press Enter to close " _'
+Exec=sh -c 'undrabyte-game check; echo; undrabyte-game tips; echo; read -p "Press Enter to close " _'
 Icon=applications-games
 Terminal=true
 Categories=Game;System;

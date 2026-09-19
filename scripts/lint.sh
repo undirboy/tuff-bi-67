@@ -18,7 +18,7 @@ pass() { printf '%s ok %s %s\n' "$C_GRN" "$C_RST" "$*"; }
 
 mapfile -t SCRIPTS < <(
     find scripts profile/airootfs/usr -type f \
-         \( -name '*.sh' -o -path '*/bin/hexforge*' \) | sort
+         \( -name '*.sh' -o -path '*/bin/undrabyte*' \) | sort
 )
 
 log "shell syntax"
@@ -117,14 +117,14 @@ conflict_failures=0
 for edition in full security dev gaming lite minimal; do
     for desktop in kde xfce none; do
         mapfile -t lists < <(edition_lists "$edition" "$desktop" "$ROOT/packages" 2>/dev/null)
-        resolve_packages "${lists[@]}" 2>/dev/null > /tmp/hexforge-lint-set.$$
-        check_conflicts "$edition/$desktop" /tmp/hexforge-lint-set.$$ || conflict_failures=1
+        resolve_packages "${lists[@]}" 2>/dev/null > /tmp/undrabyte-lint-set.$$
+        check_conflicts "$edition/$desktop" /tmp/undrabyte-lint-set.$$ || conflict_failures=1
     done
 done
-rm -f /tmp/hexforge-lint-set.$$
+rm -f /tmp/undrabyte-lint-set.$$
 
 # The AUR list is installed later onto a system that already has the baked
-# set, so a conflict there bites at `hexforge-toolkit aur` time instead.
+# set, so a conflict there bites at `undrabyte-toolkit aur` time instead.
 all_baked="$(cat packages/[0-9]*.list | grep -vE '^[[:space:]]*(#|$)' | sort -u)"
 while read -r aur_pkg; do
     for pair in "${CONFLICTS[@]}"; do

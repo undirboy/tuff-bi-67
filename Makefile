@@ -1,4 +1,4 @@
-# HexForge Linux
+# UndraByte Linux
 #
 # `make help` lists everything. The ISO build needs an Arch host and root;
 # on anything else use the DOCKER=1 variants.
@@ -26,13 +26,13 @@ endif
 .PHONY: help check iso iso-lite iso-vm iso-security iso-docker packages verify lint run run-install clean distclean
 
 help: ## Show this help
-	@printf '\033[1mHexForge Linux %s\033[0m\n\n' '$(VERSION)'
+	@printf '\033[1mUndraByte Linux %s\033[0m\n\n' '$(VERSION)'
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 	@printf '\nVariables: EDITION=%s DESKTOP=%s VM_ONLY=0 BLACKARCH=0 NVIDIA=0 DOCKER=0\n' '$(EDITION)' '$(DESKTOP)'
 	@printf 'Example:   make iso EDITION=security DESKTOP=xfce VM_ONLY=1\n'
 
-check: ## Can this machine build and run HexForge?
+check: ## Can this machine build and run UndraByte?
 	./scripts/check-host.sh
 
 iso: ## Build an ISO (needs Arch + root, or DOCKER=1)
@@ -63,7 +63,7 @@ run: ## Boot the newest ISO in a QEMU VM
 	./scripts/run-vm.sh
 
 run-install: ## Boot the ISO with a blank 60G disk attached, ready to install onto
-	./scripts/run-vm.sh --disk vm/hexforge.qcow2 --size 60G
+	./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --size 60G
 
 clean: ## Remove build scratch space
 	rm -rf work build

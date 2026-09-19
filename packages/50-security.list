@@ -1,6 +1,6 @@
 # Security tooling available from the official Arch repositories.
 # The long tail (thousands of tools) comes from BlackArch: build with
-# `--with-blackarch`, or run `hexforge-toolkit install <category>` later.
+# `--with-blackarch`, or run `undrabyte-toolkit install <category>` later.
 
 # recon & scanning
 nmap
@@ -8,7 +8,7 @@ masscan
 arp-scan
 whois
 gobuster
-# ffuf is AUR-only: hexforge-toolkit aur ffuf (or BlackArch's copy)
+# ffuf is AUR-only: undrabyte-toolkit aur ffuf (or BlackArch's copy)
 dnsmasq
 
 # traffic analysis

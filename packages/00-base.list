@@ -1,4 +1,4 @@
-# HexForge Linux - base system
+# UndraByte Linux - base system
 # Packages every edition gets. Kept close to the upstream archiso "releng"
 # profile so the live medium can boot, network and rescue real hardware.
 

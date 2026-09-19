@@ -2,10 +2,10 @@
 #
 # Gaming stack diagnostics and launcher.
 #
-#   hexforge-game check          is the machine able to run games at all
-#   hexforge-game steam [args]   launch Steam with gamemode + MangoHud
-#   hexforge-game run <cmd...>   run anything with gamemode + MangoHud
-#   hexforge-game tips           launch options and VM-specific advice
+#   undrabyte-game check          is the machine able to run games at all
+#   undrabyte-game steam [args]   launch Steam with gamemode + MangoHud
+#   undrabyte-game run <cmd...>   run anything with gamemode + MangoHud
+#   undrabyte-game tips           launch options and VM-specific advice
 
 set -uo pipefail
 
@@ -40,7 +40,7 @@ cmd_check() {
         local gl
         gl="$(glxinfo -B 2>/dev/null | awk -F': ' '/OpenGL renderer/{print $2; exit}')"
         printf '  opengl        %s  %s\n' "$OK" "${gl:-unknown}"
-        [[ $gl == *llvmpipe* ]] && printf '  %saccel         %s  software rendering only - see: hexforge-game tips%s\n' "$DIM" "$WARN" "$RST"
+        [[ $gl == *llvmpipe* ]] && printf '  %saccel         %s  software rendering only - see: undrabyte-game tips%s\n' "$DIM" "$WARN" "$RST"
     fi
 
     if ! have vulkaninfo && ! have glxinfo; then
@@ -85,11 +85,11 @@ launch_or_offer_aur() {
     printf 'Epic/GOG launchers are community software that has to be built from the AUR.
 
 '
-    read -rp "Install it now with 'hexforge-toolkit aur $pkg'? [y/N] " reply
+    read -rp "Install it now with 'undrabyte-toolkit aur $pkg'? [y/N] " reply
     if [[ ${reply,,} == y* ]]; then
-        sudo hexforge-toolkit aur "$pkg" && exec "$bin" "${@:4}"
+        sudo undrabyte-toolkit aur "$pkg" && exec "$bin" "${@:4}"
     else
-        printf 'Later: %ssudo hexforge-toolkit aur %s%s
+        printf 'Later: %ssudo undrabyte-toolkit aur %s%s
 ' "$DIM" "$pkg" "$RST"
         exit 1
     fi
@@ -106,7 +106,7 @@ cmd_legendary() {
 }
 
 cmd_run() {
-    [[ $# -gt 0 ]] || { echo "usage: hexforge-game run <command> [args...]" >&2; exit 1; }
+    [[ $# -gt 0 ]] || { echo "usage: undrabyte-game run <command> [args...]" >&2; exit 1; }
     wrap "$@"
 }
 
@@ -128,8 +128,8 @@ ${BOLD}Epic, GOG and other stores${RST}
   Epic has no Linux client. Use ${BOLD}Heroic${RST} (a GUI for Epic + GOG + Amazon)
   or ${BOLD}Legendary${RST} (Epic on the command line). Neither is in the Arch repos,
   so install on demand:
-    ${DIM}hexforge-game epic${RST}          launch Heroic, or install it first
-    ${DIM}hexforge-game legendary${RST}     the Epic CLI
+    ${DIM}undrabyte-game epic${RST}          launch Heroic, or install it first
+    ${DIM}undrabyte-game legendary${RST}     the Epic CLI
   Heroic runs Epic titles through Proton/Wine just like Steam does, so the
   same VM graphics rules below apply.
 
@@ -140,7 +140,7 @@ ${BOLD}Running games inside a VM${RST}
   1. ${BOLD}virtio-gpu with venus/virgl${RST} (easiest, good for 2D, indie and
      emulated titles). QEMU:
        ${DIM}-device virtio-vga-gl -display gtk,gl=on${RST}
-     Check it worked: ${DIM}hexforge-game check${RST} should not say llvmpipe.
+     Check it worked: ${DIM}undrabyte-game check${RST} should not say llvmpipe.
 
   2. ${BOLD}VirtualBox 3D acceleration${RST}: Settings > Display > VMSVGA +
      "Enable 3D Acceleration", 128 MB video memory, guest additions running.
@@ -164,5 +164,5 @@ case "${1-check}" in
     run)           shift; cmd_run "$@" ;;
     tips)          cmd_tips ;;
     -h|--help|help) cmd_tips ;;
-    *)             echo "usage: hexforge-game {check|steam|epic|legendary|run|tips}" >&2; exit 1 ;;
+    *)             echo "usage: undrabyte-game {check|steam|epic|legendary|run|tips}" >&2; exit 1 ;;
 esac

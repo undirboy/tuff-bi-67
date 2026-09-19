@@ -1,10 +1,10 @@
-# Running HexForge in a virtual machine
+# Running UndraByte in a virtual machine
 
-HexForge is built to be a guest. The guest agents for QEMU/KVM, VirtualBox,
+UndraByte is built to be a guest. The guest agents for QEMU/KVM, VirtualBox,
 VMware and Hyper-V are all installed and enabled; whichever one matches gets
-started at boot by `hexforge-live-setup.service`.
+started at boot by `undrabyte-live-setup.service`.
 
-After booting, run **`hexforge-vmcheck`**. It reports the hypervisor, the
+After booting, run **`undrabyte-vmcheck`**. It reports the hypervisor, the
 graphics driver, 3D acceleration, the guest agent and folder sharing, and
 prints the host-side fix for anything that is wrong.
 
@@ -35,14 +35,14 @@ the BIOS/UEFI setup screen.
 | `gaming` / `full` | 4–8 | 8–16 GB | 80 GB+ |
 
 Live booting needs no disk, but nothing survives a reboot. Attach one and run
-`hexforge-install` if you want to keep your work.
+`undrabyte-install` if you want to keep your work.
 
 ## QEMU / KVM (best support)
 
 Use the wrapper — it gets the flags right:
 
 ```bash
-./scripts/run-vm.sh --disk vm/hexforge.qcow2 --size 80G --ram 12G --cpus 6 --share ~/projects
+./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --size 80G --ram 12G --cpus 6 --share ~/projects
 ```
 
 What it sets up, and why:
@@ -74,7 +74,7 @@ Same machine, clickable. The settings that matter:
 - Disk bus **VirtIO**, NIC model **virtio**
 
 3D acceleration in virt-manager requires Spice + OpenGL *and* a virtio video
-device. Miss either and `hexforge-vmcheck` will report llvmpipe.
+device. Miss either and `undrabyte-vmcheck` will report llvmpipe.
 
 ## macOS hosts (Intel)
 
@@ -83,7 +83,7 @@ instead of KVM, the **cocoa** display, and Homebrew's UEFI firmware.
 
 ```bash
 brew install qemu
-./scripts/run-vm.sh --disk vm/hexforge.qcow2 --size 40G
+./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --size 40G
 ```
 
 Two things to know:
@@ -91,7 +91,7 @@ Two things to know:
 - **No 3D, ever.** There is no virglrenderer on macOS and cocoa has no GL
   passthrough, so guest graphics are software-rendered whatever you pass.
   Fine for the desktop and the tooling; it rules out Proton and Vulkan games.
-- **Apple silicon cannot run this image usefully.** HexForge is x86_64; on an
+- **Apple silicon cannot run this image usefully.** UndraByte is x86_64; on an
   M-series Mac it can only be emulated, which is far too slow for a desktop.
   `check-host.sh` reports this as a blocker rather than letting you find out
   after a 40-minute build.
@@ -155,9 +155,9 @@ the *userland*, import a rootfs instead:
 ```bash
 # on an Arch host or in the archlinux container
 sudo pacstrap -c rootfs $(./scripts/build-iso.sh --edition security --desktop none --list-packages)
-sudo tar -C rootfs -czf hexforge-wsl.tar.gz .
+sudo tar -C rootfs -czf undrabyte-wsl.tar.gz .
 # on Windows
-wsl --import HexForge C:\WSL\HexForge hexforge-wsl.tar.gz
+wsl --import UndraByte C:\WSL\UndraByte undrabyte-wsl.tar.gz
 ```
 
 Systemd services, the live-setup unit and the bootloader are all irrelevant
@@ -169,7 +169,7 @@ there; the tools are not.
 entry, or give the VM a virtio-gpu or VMSVGA adapter.
 
 **Desktop stuck at 1024×768, resize does nothing** — the guest agent is not
-running. `hexforge-vmcheck` says which one is missing; usually the host is
+running. `undrabyte-vmcheck` says which one is missing; usually the host is
 missing the SPICE channel or the VirtualBox graphics controller is set to
 VBoxVGA instead of VMSVGA.
 
@@ -177,7 +177,7 @@ VBoxVGA instead of VMSVGA.
 channel (use virt-manager's Spice display); VirtualBox needs
 *Devices → Shared Clipboard → Bidirectional*.
 
-**`hexforge-vmcheck` says llvmpipe** — there is no GPU acceleration. See the
+**`undrabyte-vmcheck` says llvmpipe** — there is no GPU acceleration. See the
 per-hypervisor sections above, and [GAMING.md](GAMING.md) for what that costs
 you.
 
@@ -185,7 +185,7 @@ you.
 add yourself to the `kvm` group; in a nested setup, enable nested
 virtualisation on the outer hypervisor.
 
-**Boot stops at `ERROR: device 'HEXFORGE_...' not found`** — the ISO was
+**Boot stops at `ERROR: device 'UNDRABYTE_...' not found`** — the ISO was
 copied wrong, or the virtual optical drive disconnected. Re-attach the ISO;
 if you wrote it to USB, use `dd`/`cp` rather than a file copy onto a
 filesystem.

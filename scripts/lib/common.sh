@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Shared helpers for the HexForge build scripts. Sourced, never executed.
+# Shared helpers for the UndraByte build scripts. Sourced, never executed.
 
 # shellcheck disable=SC2034
-HEXFORGE_COMMON_SOURCED=1
+UNDRABYTE_COMMON_SOURCED=1
 
 if [[ -t 1 ]]; then
     C_BOLD=$'\033[1m'; C_DIM=$'\033[2m'; C_RED=$'\033[31m'
@@ -23,12 +23,12 @@ repo_root() {
 }
 
 # Editions map to a set of package lists. Keep this the single source of
-# truth: hexforge-install (on the ISO) mirrors it for installed systems.
+# truth: undrabyte-install (on the ISO) mirrors it for installed systems.
 edition_lists() {
     local edition=$1 desktop=$2 pkgdir=$3
     local -a lists=("$pkgdir/00-base.list" "$pkgdir/20-vm-guest.list")
 
-    [[ ${HEXFORGE_VM_ONLY:-0} == 1 ]] || lists+=("$pkgdir/10-hardware.list")
+    [[ ${UNDRABYTE_VM_ONLY:-0} == 1 ]] || lists+=("$pkgdir/10-hardware.list")
     [[ $desktop != none ]] && lists+=("$pkgdir/30-desktop-$desktop.list")
 
     case $edition in
@@ -42,8 +42,8 @@ edition_lists() {
         *)        die "unknown edition '$edition' (full, security, dev, gaming, lite, minimal)" ;;
     esac
 
-    [[ ${HEXFORGE_WITH_BLACKARCH:-0} == 1 ]] && lists+=("$pkgdir/90-blackarch.list")
-    [[ ${HEXFORGE_WITH_NVIDIA:-0}    == 1 ]] && lists+=("$pkgdir/95-nvidia.list")
+    [[ ${UNDRABYTE_WITH_BLACKARCH:-0} == 1 ]] && lists+=("$pkgdir/90-blackarch.list")
+    [[ ${UNDRABYTE_WITH_NVIDIA:-0}    == 1 ]] && lists+=("$pkgdir/95-nvidia.list")
 
     printf '%s\n' "${lists[@]}"
 }

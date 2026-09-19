@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=HexForge - start here
+Name=UndraByte - start here
 Comment=Every tool on this image, in one place
 Icon=applications-system
-Exec=hexforge
+Exec=undrabyte
 Terminal=true
 Categories=System;

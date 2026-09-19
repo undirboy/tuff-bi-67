@@ -7,11 +7,11 @@
 # the cursor and the console palette - because a half-themed desktop, where
 # GTK apps are dark and Qt apps are blinding white, is worse than either.
 #
-#   hexforge-theme            show what is set
-#   hexforge-theme dark       go dark (the HexForge default)
-#   hexforge-theme light      go light
-#   hexforge-theme toggle     swap
-#   hexforge-theme --system   also write it into /etc/skel for new users (root)
+#   undrabyte-theme            show what is set
+#   undrabyte-theme dark       go dark (the UndraByte default)
+#   undrabyte-theme light      go light
+#   undrabyte-theme toggle     swap
+#   undrabyte-theme --system   also write it into /etc/skel for new users (root)
 
 set -euo pipefail
 
@@ -133,8 +133,8 @@ apply_qt() {
         platform=gtk3
     fi
     if [[ -n $platform ]]; then
-        install -Dm0644 /dev/stdin "$home/.config/environment.d/95-hexforge-qt.conf" <<-EOF
-		# Set by hexforge-theme: make Qt applications follow the desktop theme.
+        install -Dm0644 /dev/stdin "$home/.config/environment.d/95-undrabyte-qt.conf" <<-EOF
+		# Set by undrabyte-theme: make Qt applications follow the desktop theme.
 		QT_QPA_PLATFORMTHEME=$platform
 		EOF
         step "Qt platform theme: $platform"
@@ -161,24 +161,24 @@ apply_console() {
     local mode=$1 home=$2
     # The TTY palette matters on a headless image, where it is the only UI.
     [[ $mode == dark ]] || return 0
-    install -Dm0644 /dev/stdin "$home/.config/hexforge/console-colors" <<-'EOF'
-	# Sourced by the HexForge shell config; a legible 16-colour dark palette.
-	HEXFORGE_ANSI_BG=0d1117
-	HEXFORGE_ANSI_FG=c9d1d9
-	HEXFORGE_ANSI_ACCENT=1793d1
+    install -Dm0644 /dev/stdin "$home/.config/undrabyte/console-colors" <<-'EOF'
+	# Sourced by the UndraByte shell config; a legible 16-colour dark palette.
+	UNDRABYTE_ANSI_BG=0d1117
+	UNDRABYTE_ANSI_FG=c9d1d9
+	UNDRABYTE_ANSI_ACCENT=1793d1
 	EOF
 }
 
 write_marker() {
     local mode=$1 home=$2
-    install -Dm0644 /dev/stdin "$home/.config/hexforge/theme" <<<"$mode"
+    install -Dm0644 /dev/stdin "$home/.config/undrabyte/theme" <<<"$mode"
     if (( SYSTEM )); then
         [[ $EUID -eq 0 ]] || die "--system needs root"
-        install -Dm0644 /dev/stdin /etc/hexforge/theme <<<"$mode"
+        install -Dm0644 /dev/stdin /etc/undrabyte/theme <<<"$mode"
         # Seed /etc/skel so accounts created later start the same way.
         local f
         for f in .config/gtk-3.0/settings.ini .config/gtk-4.0/settings.ini \
-                 .config/kdeglobals .config/hexforge/theme; do
+                 .config/kdeglobals .config/undrabyte/theme; do
             [[ -e "$home/$f" ]] && install -Dm0644 "$home/$f" "/etc/skel/$f"
         done
         step "seeded /etc/skel for new accounts"
@@ -187,10 +187,10 @@ write_marker() {
 
 current_mode() {
     local home; home="$(target_home)"
-    if [[ -r "$home/.config/hexforge/theme" ]]; then
-        cat "$home/.config/hexforge/theme"
-    elif [[ -r /etc/hexforge/theme ]]; then
-        cat /etc/hexforge/theme
+    if [[ -r "$home/.config/undrabyte/theme" ]]; then
+        cat "$home/.config/undrabyte/theme"
+    elif [[ -r /etc/undrabyte/theme ]]; then
+        cat /etc/undrabyte/theme
     else
         echo dark
     fi
@@ -198,7 +198,7 @@ current_mode() {
 
 cmd_status() {
     local home; home="$(target_home)"
-    printf '%sHexForge theme%s\n\n' "$BOLD" "$RST"
+    printf '%sUndraByte theme%s\n\n' "$BOLD" "$RST"
     printf '  %-20s %s%s%s\n' "mode" "$GRN" "$(current_mode)" "$RST"
     printf '  %-20s %s\n' "GTK theme" "$(gtk_theme_for "$(current_mode)")"
     printf '  %-20s %s\n' "for user" "$WHO"
@@ -206,7 +206,7 @@ cmd_status() {
         printf '  %-20s %s\n' "libadwaita scheme" \
             "$(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | tr -d "'" || echo n/a)"
     fi
-    printf '\n%sChange it with:%s hexforge-theme dark  |  light  |  toggle\n' "$DIM" "$RST"
+    printf '\n%sChange it with:%s undrabyte-theme dark  |  light  |  toggle\n' "$DIM" "$RST"
 }
 
 cmd_apply() {
@@ -224,7 +224,7 @@ cmd_apply() {
     # root via sudo, hand the files back.
     if [[ -n ${SUDO_USER:-} && $SUDO_USER != root && $EUID -eq 0 ]]; then
         chown -R "$SUDO_USER" "$home/.config/gtk-3.0" "$home/.config/gtk-4.0" \
-            "$home/.config/hexforge" "$home/.config/environment.d" 2>/dev/null || true
+            "$home/.config/undrabyte" "$home/.config/environment.d" 2>/dev/null || true
         [[ -e "$home/.config/kdeglobals" ]] && chown "$SUDO_USER" "$home/.config/kdeglobals"
     fi
 

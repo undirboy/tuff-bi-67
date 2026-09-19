@@ -1,10 +1,10 @@
 
-  HexForge Linux
+  UndraByte Linux
 
-  hexforge           the launcher, everything in one menu
-  hexforge-theme     dark / light mode        hexforge-optimize  tune this machine
-  hexforge-vmcheck   VM and graphics health   hexforge-game      gaming stack
-  hexforge-toolkit   more tooling             hexforge-install   install to disk
+  undrabyte           the launcher, everything in one menu
+  undrabyte-theme     dark / light mode        undrabyte-optimize  tune this machine
+  undrabyte-vmcheck   VM and graphics health   undrabyte-game      gaming stack
+  undrabyte-toolkit   more tooling             undrabyte-install   install to disk
 
   The offensive tooling here is for systems you own or are authorised to
   test. Everything else is someone else's computer.

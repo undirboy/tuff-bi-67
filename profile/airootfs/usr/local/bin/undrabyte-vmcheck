@@ -71,7 +71,7 @@ case "$virt" in
         ;;
     *)
         row "$WARN" "guest agent" "none for '$virt'"
-        hint "HexForge ships agents for QEMU/KVM, VirtualBox, VMware and Hyper-V. Containers and other hypervisors need no guest agent."
+        hint "UndraByte ships agents for QEMU/KVM, VirtualBox, VMware and Hyper-V. Containers and other hypervisors need no guest agent."
         ;;
 esac
 

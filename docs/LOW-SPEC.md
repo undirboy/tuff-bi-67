@@ -16,7 +16,7 @@ threads, 8 GB, integrated graphics, a small SSD.
 | Building the full ISO on the machine itself | no — not enough disk |
 | Building the `lite` ISO on the machine | yes, with ~15 GB free |
 
-The gaming half of HexForge needs a GPU the guest can actually reach. macOS
+The gaming half of UndraByte needs a GPU the guest can actually reach. macOS
 hosts have no virgl/venus, an integrated Intel GPU has nothing to pass
 through, and VirtualBox/VMware give you OpenGL but never Vulkan — which
 Proton and DXVK require. That is a hardware and hypervisor limitation, not a
@@ -68,7 +68,7 @@ ISO across — it is one file.
 
 ```bash
 brew install qemu
-./scripts/run-vm.sh --disk vm/hexforge.qcow2 --size 30G
+./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --size 30G
 ```
 
 `run-vm.sh` detects macOS and uses **HVF** (Hypervisor.framework) for
@@ -129,7 +129,7 @@ is a genuinely nicer workflow on this class of machine:
 
 ```bash
 ./scripts/build-iso.sh --docker --edition lite --desktop none --vm-only
-./scripts/run-vm.sh --disk vm/hexforge.qcow2 --ram 3G --cpus 2 --ssh-port 2222
+./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --ram 3G --cpus 2 --ssh-port 2222
 ```
 
 Then, from macOS Terminal (or iTerm, or VS Code's Remote-SSH):
@@ -163,4 +163,4 @@ On a 2015-era dual-core i5 with HVF acceleration and a 4 GB guest:
 - Anything 3D: software rendered, so single-digit frames per second
 
 If that sounds acceptable, the machine is fine. If you need the gaming half of
-HexForge, you need a different machine — see [GAMING.md](GAMING.md).
+UndraByte, you need a different machine — see [GAMING.md](GAMING.md).

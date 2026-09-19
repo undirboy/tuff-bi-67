@@ -33,7 +33,7 @@ whois
 bind
 arp-scan
 gobuster
-# ffuf is AUR-only: hexforge-toolkit aur ffuf (or BlackArch's copy)
+# ffuf is AUR-only: undrabyte-toolkit aur ffuf (or BlackArch's copy)
 
 # traffic
 wireshark-cli

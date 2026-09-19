@@ -1,5 +1,5 @@
 # Guest integration: clipboard sharing, display auto-resize, folder sharing.
-# HexForge is built to be run virtually first, so this list is never optional.
+# UndraByte is built to be run virtually first, so this list is never optional.
 
 qemu-guest-agent
 spice-vdagent

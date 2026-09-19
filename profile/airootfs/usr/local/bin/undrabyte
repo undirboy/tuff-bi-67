@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 #
-# The HexForge launcher: one place to reach everything on the image.
+# The UndraByte launcher: one place to reach everything on the image.
 #
 # It is a terminal UI on purpose. A GTK panel would look nicer on the desktop
 # and be useless over SSH, on a TTY, or on a headless build - and "both
 # versions do everything" is the point of this image. This runs identically
 # on bare metal, in a VM, and through an ssh session.
 #
-#   hexforge              open the launcher
-#   hexforge security     jump straight to a section
-#   hexforge --list       print the whole menu tree (no TUI, scriptable)
+#   undrabyte              open the launcher
+#   undrabyte security     jump straight to a section
+#   undrabyte --list       print the whole menu tree (no TUI, scriptable)
 #
 # Keys: up/down or j/k to move, Enter to run, 1-9 to jump, Esc/Backspace to
 #       go back, t to toggle the theme, q to quit.
@@ -17,14 +17,14 @@
 set -uo pipefail
 
 readonly VERSION_FILE=/usr/lib/os-release
-readonly THEME_FILE_USER="${HOME:-/root}/.config/hexforge/theme"
-readonly THEME_FILE_SYS=/etc/hexforge/theme
+readonly THEME_FILE_USER="${HOME:-/root}/.config/undrabyte/theme"
+readonly THEME_FILE_SYS=/etc/undrabyte/theme
 
 # ------------------------------------------------------------- appearance --
 
 if [[ -t 1 && -z ${NO_COLOR-} ]]; then
     C_RST=$'\033[0m';  C_BOLD=$'\033[1m'; C_DIM=$'\033[2m'
-    C_ACC=$'\033[38;5;38m'                      # HexForge blue
+    C_ACC=$'\033[38;5;38m'                      # UndraByte blue
     C_SEL=$'\033[48;5;24m\033[38;5;255m\033[1m' # selected row
     C_OK=$'\033[38;5;71m'; C_WARN=$'\033[38;5;214m'; C_ERR=$'\033[38;5;167m'
 else
@@ -72,11 +72,11 @@ run|gobuster|Directory and DNS brute forcing|gobuster
 run|hashcat|GPU/CPU hash cracking|hashcat
 run|John the Ripper|Password cracking|john
 run|aircrack-ng|802.11 analysis and cracking|aircrack-ng
-run|WiFi handshake (your own AP)|Guided WPA capture and crack, for a network you own|hexforge-wifi
+run|WiFi handshake (your own AP)|Guided WPA capture and crack, for a network you own|undrabyte-wifi
 run|radare2|Reverse engineering framework|r2
 gui|Ghidra|Decompiler and disassembler|ghidra
 run|searchsploit|Search the Exploit-DB archive|searchsploit
-run|Add more tools|BlackArch groups and AUR builds|hexforge-toolkit
+run|Add more tools|BlackArch groups and AUR builds|undrabyte-toolkit
 MENU
 }
 
@@ -96,48 +96,48 @@ MENU
 
 menu_play() {
     cat <<'MENU'
-run|Check the gaming stack|Drivers, Vulkan, gamemode, limits|hexforge-game check
-gui|Steam|Launched with gamemode and MangoHud|hexforge-game steam
-run|Epic / GOG (Heroic)|Launch Heroic, or install it on first use|hexforge-game epic
-run|Epic (Legendary CLI)|The Epic launcher on the command line|hexforge-game legendary
+run|Check the gaming stack|Drivers, Vulkan, gamemode, limits|undrabyte-game check
+gui|Steam|Launched with gamemode and MangoHud|undrabyte-game steam
+run|Epic / GOG (Heroic)|Launch Heroic, or install it on first use|undrabyte-game epic
+run|Epic (Legendary CLI)|The Epic launcher on the command line|undrabyte-game legendary
 gui|Lutris|Wine and non-Steam game management|lutris
 gui|RetroArch|Emulation frontend|retroarch
-run|Launch options and VM advice|What works in a VM, and what needs passthrough|hexforge-game tips
-run|Graphics health|Driver, 3D acceleration, guest agent|hexforge-vmcheck
+run|Launch options and VM advice|What works in a VM, and what needs passthrough|undrabyte-game tips
+run|Graphics health|Driver, 3D acceleration, guest agent|undrabyte-vmcheck
 MENU
 }
 
 menu_system() {
     cat <<'MENU'
-run|Optimisation status|What is tuned, and what is not|hexforge-optimize status
-run|Tune for this platform|Detects VM or bare metal and applies the right profile|sudo hexforge-optimize apply
-run|Tune aggressively|Also trades desktop effects and indexing for speed|sudo hexforge-optimize apply --aggressive
-run|Undo tuning|Revert everything the optimiser changed|sudo hexforge-optimize revert
+run|Optimisation status|What is tuned, and what is not|undrabyte-optimize status
+run|Tune for this platform|Detects VM or bare metal and applies the right profile|sudo undrabyte-optimize apply
+run|Tune aggressively|Also trades desktop effects and indexing for speed|sudo undrabyte-optimize apply --aggressive
+run|Undo tuning|Revert everything the optimiser changed|sudo undrabyte-optimize revert
 note|---|---|---
-run|Theme|Current theme settings|hexforge-theme status
-run|Dark mode|Apply the dark theme everywhere|hexforge-theme dark
-run|Light mode|Apply the light theme everywhere|hexforge-theme light
+run|Theme|Current theme settings|undrabyte-theme status
+run|Dark mode|Apply the dark theme everywhere|undrabyte-theme dark
+run|Light mode|Apply the light theme everywhere|undrabyte-theme light
 note|---|---|---
-run|Virtualisation health|Hypervisor, 3D, guest agent, folder sharing|hexforge-vmcheck
-run|Package toolkit|BlackArch, AUR, system update|hexforge-toolkit status
-run|Update everything|pacman -Syu, and AUR if paru is present|sudo hexforge-toolkit update
+run|Virtualisation health|Hypervisor, 3D, guest agent, folder sharing|undrabyte-vmcheck
+run|Package toolkit|BlackArch, AUR, system update|undrabyte-toolkit status
+run|Update everything|pacman -Syu, and AUR if paru is present|sudo undrabyte-toolkit update
 note|---|---|---
-run|Install to disk|Partition, format and install this system|sudo hexforge-install --dry-run
+run|Install to disk|Partition, format and install this system|sudo undrabyte-install --dry-run
 MENU
 }
 
 menu_help() {
     cat <<'MENU'
-run|Welcome tour|What this image is|hexforge-welcome
-run|Launcher and dark mode|This menu, the theme, desktop defaults|less /usr/local/share/hexforge/docs/LAUNCHER.md
-run|Optimisation|What gets tuned for a VM vs bare metal|less /usr/local/share/hexforge/docs/OPTIMISATION.md
-run|Running in a VM|Per-hypervisor settings|less /usr/local/share/hexforge/docs/RUNNING-VMS.md
-run|Gaming|What runs in a VM, and GPU passthrough|less /usr/local/share/hexforge/docs/GAMING.md
-run|Security toolkit|What is installed, and how to build a lab|less /usr/local/share/hexforge/docs/SECURITY-TOOLKIT.md
-run|WiFi security|Cracking your own WPA2, wirelessly|less /usr/local/share/hexforge/docs/WIFI-SECURITY.md
-run|Small machines|Tuning for 4 GB and two cores|less /usr/local/share/hexforge/docs/LOW-SPEC.md
-run|Installing|Putting this on a disk|less /usr/local/share/hexforge/docs/INSTALL.md
-run|Lawful use|Licensing, and the rules around the offensive tooling|less /usr/local/share/hexforge/docs/LEGAL.md
+run|Welcome tour|What this image is|undrabyte-welcome
+run|Launcher and dark mode|This menu, the theme, desktop defaults|less /usr/local/share/undrabyte/docs/LAUNCHER.md
+run|Optimisation|What gets tuned for a VM vs bare metal|less /usr/local/share/undrabyte/docs/OPTIMISATION.md
+run|Running in a VM|Per-hypervisor settings|less /usr/local/share/undrabyte/docs/RUNNING-VMS.md
+run|Gaming|What runs in a VM, and GPU passthrough|less /usr/local/share/undrabyte/docs/GAMING.md
+run|Security toolkit|What is installed, and how to build a lab|less /usr/local/share/undrabyte/docs/SECURITY-TOOLKIT.md
+run|WiFi security|Cracking your own WPA2, wirelessly|less /usr/local/share/undrabyte/docs/WIFI-SECURITY.md
+run|Small machines|Tuning for 4 GB and two cores|less /usr/local/share/undrabyte/docs/LOW-SPEC.md
+run|Installing|Putting this on a disk|less /usr/local/share/undrabyte/docs/INSTALL.md
+run|Lawful use|Licensing, and the rules around the offensive tooling|less /usr/local/share/undrabyte/docs/LEGAL.md
 MENU
 }
 
@@ -154,7 +154,7 @@ status_line() {
     virt="$(systemd-detect-virt 2>/dev/null || echo bare-metal)"
     [[ $virt == none ]] && virt=bare-metal
     ram="$(awk '/MemTotal/{printf "%.0f", $2/1048576}' /proc/meminfo 2>/dev/null || echo '?')"
-    profile="$(grep -m1 '^profile:' /var/lib/hexforge/optimize.state 2>/dev/null | cut -d: -f2- || echo untuned)"
+    profile="$(grep -m1 '^profile:' /var/lib/undrabyte/optimize.state 2>/dev/null | cut -d: -f2- || echo untuned)"
     printf '%s  ·  %s GB  ·  %s cores  ·  theme: %s  ·  tuning: %s' \
         "$virt" "$ram" "$(nproc 2>/dev/null || echo '?')" "$(current_theme)" "${profile:-untuned}"
 }
@@ -167,7 +167,7 @@ draw_header() {
     local cols=$1 title=$2
     printf '%s%s╭%s╮%s\n' "$C_ACC" "" "$(repeat_char $((cols-2)) '─')" "$C_RST"
     printf '%s│%s %s%-*s%s %s│%s\n' \
-        "$C_ACC" "$C_RST" "$C_BOLD$C_ACC" $((cols-4)) "HexForge  —  $title" "$C_RST" "$C_ACC" "$C_RST"
+        "$C_ACC" "$C_RST" "$C_BOLD$C_ACC" $((cols-4)) "UndraByte  —  $title" "$C_RST" "$C_ACC" "$C_RST"
     printf '%s│%s %s%-*s%s %s│%s\n' \
         "$C_ACC" "$C_RST" "$C_DIM" $((cols-4)) "$(status_line)" "$C_RST" "$C_ACC" "$C_RST"
     printf '%s╰%s╯%s\n' "$C_ACC" "$(repeat_char $((cols-2)) '─')" "$C_RST"
@@ -267,7 +267,7 @@ run_menu() {
             q|Q) return 2 ;;
             t|T)
                 show_cursor; clear_screen
-                hexforge-theme toggle || true
+                undrabyte-theme toggle || true
                 printf '\n%sPress any key…%s' "$C_DIM" "$C_RST"; read -rsn1 _ || true
                 hide_cursor
                 ;;
@@ -346,7 +346,7 @@ cmd_list() {
 
 interactive() {
     local start_menu=${1:-menu_main} start_title=${2:-Launcher}
-    [[ -t 0 && -t 1 ]] || { printf '%serror:%s not a terminal. Try: hexforge --list\n' "$C_ERR" "$C_RST" >&2; exit 1; }
+    [[ -t 0 && -t 1 ]] || { printf '%serror:%s not a terminal. Try: undrabyte --list\n' "$C_ERR" "$C_RST" >&2; exit 1; }
 
     trap 'show_cursor; clear_screen; exit 0' INT TERM
     hide_cursor
@@ -374,7 +374,7 @@ interactive() {
 
     show_cursor
     clear_screen
-    printf '%sHexForge%s — back to the shell. Run %shexforge%s to return.\n' \
+    printf '%sUndraByte%s — back to the shell. Run %sundrabyte%s to return.\n' \
         "$C_ACC$C_BOLD" "$C_RST" "$C_BOLD" "$C_RST"
 }
 
@@ -384,7 +384,7 @@ case ${1-} in
     --list|-l)   cmd_list menu_main "" ;;
     --version|-V)
         # shellcheck source=/dev/null
-        ( . "$VERSION_FILE" 2>/dev/null; echo "HexForge ${BUILD_ID:-rolling}" ) ;;
+        ( . "$VERSION_FILE" 2>/dev/null; echo "UndraByte ${BUILD_ID:-rolling}" ) ;;
     -h|--help)   usage ;;
     security)    interactive menu_security "Security toolkit" ;;
     dev|develop) interactive menu_dev      "Development" ;;

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# Boot a HexForge ISO (or an installed disk image) under QEMU with settings
+# Boot a UndraByte ISO (or an installed disk image) under QEMU with settings
 # that actually work: KVM when available, UEFI by default, virtio everywhere,
 # and OpenGL passthrough so the desktop is not stuck on llvmpipe.
 #
 #   ./scripts/run-vm.sh                          # newest ISO in out/, live
-#   ./scripts/run-vm.sh out/hexforge-2026.01.iso
-#   ./scripts/run-vm.sh --disk vm/hexforge.qcow2 --size 80G   # install target
-#   ./scripts/run-vm.sh --disk vm/hexforge.qcow2 --no-iso     # boot installed
+#   ./scripts/run-vm.sh out/undrabyte-2026.01.iso
+#   ./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --size 80G   # install target
+#   ./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --no-iso     # boot installed
 #   ./scripts/run-vm.sh --share ~/work                        # 9p host folder
 
 set -euo pipefail
@@ -59,8 +59,8 @@ Inside the guest, mount a --share with:
 
 A VM's virtio NIC cannot do monitor mode or packet injection. To capture a
 WPA handshake from your own access point, pass a real USB WiFi adapter through:
-  ${C_DIM}./scripts/run-vm.sh --disk vm/hexforge.qcow2 --wifi${C_RST}
-then, in the guest: ${C_DIM}hexforge-wifi${C_RST}
+  ${C_DIM}./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --wifi${C_RST}
+then, in the guest: ${C_DIM}undrabyte-wifi${C_RST}
 EOF
 }
 
@@ -140,7 +140,7 @@ fi
 # ------------------------------------------------------------- the flags --
 
 QEMU=(qemu-system-x86_64
-      -name "HexForge"
+      -name "UndraByte"
       -m "$RAM"
       -smp "$CPUS"
       -rtc base=utc
@@ -252,7 +252,7 @@ QEMU+=(-device qemu-xhci -device usb-tablet -device usb-kbd)
 
 # Guest agent + clipboard/resize channel.
 QEMU+=(-device virtio-serial-pci
-       -chardev "socket,path=${TMPDIR:-/tmp}/hexforge-qga.sock,server=on,wait=off,id=qga0"
+       -chardev "socket,path=${TMPDIR:-/tmp}/undrabyte-qga.sock,server=on,wait=off,id=qga0"
        -device "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0")
 
 [[ -n $DISK ]] && QEMU+=(-drive "file=$DISK,if=virtio,format=qcow2,cache=writeback,discard=unmap")

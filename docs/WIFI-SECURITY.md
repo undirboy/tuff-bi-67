@@ -2,9 +2,9 @@
 
 A standard, legal way to learn how WPA2 actually holds up: capture the 4-way
 handshake when a device joins **your own** access point, then try to recover
-the passphrase from it offline. HexForge ships everything for it —
+the passphrase from it offline. UndraByte ships everything for it —
 `aircrack-ng`, `hcxdumptool`, `hcxtools`, `hashcat`, `john` — plus
-`hexforge-wifi`, which walks the whole flow.
+`undrabyte-wifi`, which walks the whole flow.
 
 ## The one rule
 
@@ -13,7 +13,7 @@ field is taught. Doing it to any other network — a neighbour's, a café's,
 your workplace's without written authorisation — is a criminal offence under
 the US CFAA, the UK Computer Misuse Act, the EU cybercrime directive and
 equivalents almost everywhere. Intent is judged by conduct, and "I was only
-learning" has never worked as a defence. `hexforge-wifi` makes you name the
+learning" has never worked as a defence. `undrabyte-wifi` makes you name the
 single BSSID you target and confirm you own it, precisely so it can't be
 pointed at a network in passing. Point it only at your own.
 
@@ -28,7 +28,7 @@ at all. It moves IP packets to the host and nothing else: no monitor mode, no
 injection, no channels. Nothing you configure changes that. So there are two
 ways to do this exercise:
 
-1. **Boot HexForge on bare metal** (live USB), where it can use the laptop's
+1. **Boot UndraByte on bare metal** (live USB), where it can use the laptop's
    built-in WiFi directly — if that chipset's driver supports monitor mode.
 2. **Pass a USB WiFi adapter through to the VM.** The adapter is a real
    radio; QEMU hands it to the guest, and the guest's driver drives it. This
@@ -39,7 +39,7 @@ ways to do this exercise:
 Not every WiFi chip can enter monitor mode; it depends on the driver. The
 laptop's built-in card often cannot, which is the other reason people use a
 USB adapter. Well-supported chipsets (all have in-kernel drivers, so they
-work on HexForge with no extra install):
+work on UndraByte with no extra install):
 
 | Chipset | Bands | Notes |
 |---|---|---|
@@ -48,19 +48,19 @@ work on HexForge with no extra install):
 | Realtek RTL8812AU | 2.4/5 GHz | dual-band; driver is in recent kernels |
 | MediaTek MT7612U | 2.4/5 GHz | dual-band, good injection |
 
-Check whether an adapter can do it, inside HexForge:
+Check whether an adapter can do it, inside UndraByte:
 
 ```bash
 iw phy | grep -A8 'Supported interface modes'   # look for "* monitor"
 ```
 
-## Do it with `hexforge-wifi`
+## Do it with `undrabyte-wifi`
 
 The guided path — it picks the adapter, scans, captures and cracks, and puts
 the adapter back afterwards:
 
 ```bash
-hexforge-wifi           # or press it from the hexforge launcher, Security section
+undrabyte-wifi           # or press it from the undrabyte launcher, Security section
 ```
 
 Or step by step, if you prefer to see each command:
@@ -69,7 +69,7 @@ Or step by step, if you prefer to see each command:
 host, with the adapter plugged in:
 
 ```bash
-./scripts/run-vm.sh --disk vm/hexforge.qcow2 --wifi
+./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --wifi
 ```
 
 `--wifi` lists USB WiFi adapters and passes the one you choose; the device
@@ -79,13 +79,13 @@ explicitly instead: `--usb 0bda:8812` (the `lsusb` VID:PID).
 **2. Scan for your network** and note its BSSID and channel:
 
 ```bash
-hexforge-wifi scan
+undrabyte-wifi scan
 ```
 
 **3. Capture the handshake:**
 
 ```bash
-hexforge-wifi capture AA:BB:CC:DD:EE:FF 6
+undrabyte-wifi capture AA:BB:CC:DD:EE:FF 6
 ```
 
 A handshake only happens when a device joins the network. Either reconnect
@@ -101,15 +101,15 @@ Watch airodump's top-right for `WPA handshake: AA:BB:CC:...`, then Ctrl-C.
 **4. Crack it offline:**
 
 ```bash
-hexforge-wifi crack ~/wifi-captures/handshake-...-01.cap
+undrabyte-wifi crack ~/wifi-captures/handshake-...-01.cap
 ```
 
 This is a **dictionary attack**: it only finds the passphrase if the
-passphrase is in the wordlist. HexForge does not bake in a big wordlist
+passphrase is in the wordlist. UndraByte does not bake in a big wordlist
 (licensing and size); get the standard one with:
 
 ```bash
-hexforge-toolkit aur seclists      # provides rockyou and much more
+undrabyte-toolkit aur seclists      # provides rockyou and much more
 ```
 
 With a GPU, `hashcat` is far faster than `aircrack-ng`:
@@ -122,7 +122,7 @@ hashcat -m 22000 hs.hc22000 /usr/share/seclists/Passwords/Leaked-Databases/rocky
 **5. Put the adapter back** to normal (managed) mode:
 
 ```bash
-hexforge-wifi restore
+undrabyte-wifi restore
 ```
 
 ## What this teaches
@@ -144,7 +144,7 @@ just guessing. So:
 
 ## Cleaning up
 
-`hexforge-wifi restore` stops monitor mode and restarts NetworkManager. If
+`undrabyte-wifi restore` stops monitor mode and restarts NetworkManager. If
 you passed a USB adapter through, it returns to the host when you power the
 VM off.
 

@@ -25,7 +25,7 @@ unproblematic; publishing one is a decision to make deliberately.
 
 ## Export control
 
-Cryptographic software is export-controlled in some jurisdictions. A HexForge
+Cryptographic software is export-controlled in some jurisdictions. A UndraByte
 image contains OpenSSL, GnuPG, WireGuard, hashcat and more. If you distribute
 images across borders, check your local rules.
 

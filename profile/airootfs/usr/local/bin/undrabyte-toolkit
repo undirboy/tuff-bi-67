@@ -6,24 +6,24 @@
 
 set -euo pipefail
 
-readonly SHARE=/usr/local/share/hexforge
+readonly SHARE=/usr/local/share/undrabyte
 readonly AUR_LIST="$SHARE/packages/aur-optional.list"
 readonly BLACKARCH_STRAP=https://blackarch.org/strap.sh
 # BlackArch publishes the SHA1 of strap.sh on https://blackarch.org/downloads.html
 # and rotates the file periodically, so no checksum is hardcoded here. Put the
 # value you read off that page into this file to make the check automatic.
-readonly BLACKARCH_STRAP_SHA1_FILE=/etc/hexforge/blackarch-strap.sha1
+readonly BLACKARCH_STRAP_SHA1_FILE=/etc/undrabyte/blackarch-strap.sha1
 
 BOLD=$'\033[1m'; RST=$'\033[0m'; DIM=$'\033[2m'
 
 die()  { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
 
-need_root() { [[ $EUID -eq 0 ]] || die "run this as root (sudo hexforge-toolkit $*)"; }
+need_root() { [[ $EUID -eq 0 ]] || die "run this as root (sudo undrabyte-toolkit $*)"; }
 
 usage() {
     cat <<EOF
-${BOLD}hexforge-toolkit${RST} - manage optional HexForge tooling
+${BOLD}undrabyte-toolkit${RST} - manage optional UndraByte tooling
 
   ${BOLD}status${RST}                 what is enabled on this system
   ${BOLD}groups${RST}                 list the BlackArch tool groups
@@ -42,7 +42,7 @@ blackarch_enabled() {
 }
 
 cmd_status() {
-    printf '%sHexForge toolkit status%s\n\n' "$BOLD" "$RST"
+    printf '%sUndraByte toolkit status%s\n\n' "$BOLD" "$RST"
     printf '  %-22s %s\n' "multilib (32-bit)" \
         "$(grep -qE '^\s*\[multilib\]' /etc/pacman.conf && echo enabled || echo disabled)"
     printf '  %-22s %s\n' "blackarch repo" \
@@ -55,7 +55,7 @@ cmd_status() {
 
 cmd_groups() {
     cat <<'EOF'
-BlackArch groups (install with: hexforge-toolkit install <group>)
+BlackArch groups (install with: undrabyte-toolkit install <group>)
 
   recon          host/network/service discovery and OSINT
   scanner        vulnerability scanners
@@ -110,13 +110,13 @@ cmd_enable_blackarch() {
     info "running BlackArch strap (installs keyring + mirrorlist)"
     "$tmp/strap.sh"
     pacman -Sy
-    info "blackarch enabled - try: hexforge-toolkit install recon"
+    info "blackarch enabled - try: undrabyte-toolkit install recon"
 }
 
 cmd_install() {
     need_root install
-    [[ $# -gt 0 ]] || die "name at least one group (see: hexforge-toolkit groups)"
-    blackarch_enabled || die "run 'hexforge-toolkit enable-blackarch' first"
+    [[ $# -gt 0 ]] || die "name at least one group (see: undrabyte-toolkit groups)"
+    blackarch_enabled || die "run 'undrabyte-toolkit enable-blackarch' first"
     local groups=()
     local g
     for g in "$@"; do

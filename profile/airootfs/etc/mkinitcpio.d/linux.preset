@@ -1,4 +1,4 @@
-# mkinitcpio preset file for the 'linux' package on HexForge live media
+# mkinitcpio preset file for the 'linux' package on UndraByte live media
 
 PRESETS=('archiso')
 

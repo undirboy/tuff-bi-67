@@ -1,10 +1,10 @@
-# HexForge Linux
+# UndraByte Linux
 
 A buildable Linux distribution for the three things that usually need three
 different machines: **security work**, **software development**, and **gaming** —
 designed from the start to run inside a virtual machine.
 
-HexForge is an Arch-based live ISO built with [archiso](https://gitlab.archlinux.org/archlinux/archiso).
+UndraByte is an Arch-based live ISO built with [archiso](https://gitlab.archlinux.org/archlinux/archiso).
 This repository is the *recipe*, not the image: you build the ISO yourself, so
 you know exactly what is in it and can change any of it.
 
@@ -28,9 +28,9 @@ sudo ./scripts/build-iso.sh       # build (Arch host) …
 | **Development** | gcc/clang/LLVM, Python, Go, Rust, Node, JDK, Neovim, VS Code, Docker, Podman, libvirt/QEMU for nested VMs |
 | **Gaming** | Steam, Proton, Lutris, Wine, Gamescope, GameMode, MangoHud, RetroArch, PipeWire low-latency audio, full 32-bit multilib stack |
 | **Virtualisation** | Guest agents for QEMU/KVM, VirtualBox, VMware and Hyper-V; virtio-gpu / virgl / venus 3D; clipboard, resize and folder sharing that work out of the box |
-| **Interface** | `hexforge` launcher, dark by default everywhere, and one command that tunes the machine for whichever of bare metal or a VM it turns out to be |
+| **Interface** | `undrabyte` launcher, dark by default everywhere, and one command that tunes the machine for whichever of bare metal or a VM it turns out to be |
 
-Live user: **`forge` / `forge`** (change it in `profile/airootfs/etc/hexforge/live.conf`
+Live user: **`forge` / `forge`** (change it in `profile/airootfs/etc/undrabyte/live.conf`
 before building anything you hand to someone else).
 
 ## Editions
@@ -69,7 +69,7 @@ OpenGL context so the desktop is not stuck on software rendering:
 
 ```bash
 ./scripts/run-vm.sh                                   # live boot the newest ISO
-./scripts/run-vm.sh --disk vm/hexforge.qcow2 --size 80G   # with a disk to install onto
+./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --size 80G   # with a disk to install onto
 ./scripts/run-vm.sh --share ~/projects --ram 12G --cpus 8
 ```
 
@@ -81,33 +81,33 @@ VirtualBox, VMware and Hyper-V are supported too — the per-hypervisor settings
 that matter (and the ones that silently cost you 3D acceleration) are in
 [docs/RUNNING-VMS.md](docs/RUNNING-VMS.md).
 
-Inside the guest, `hexforge-vmcheck` tells you what is working and, for
+Inside the guest, `undrabyte-vmcheck` tells you what is working and, for
 anything that is not, what to change on the host.
 
 ## Installing to a disk
 
-The live image carries `hexforge-install`: partition, format (ext4 or btrfs,
+The live image carries `undrabyte-install`: partition, format (ext4 or btrfs,
 optionally LUKS2-encrypted), pacstrap the same package lists the ISO was built
 from, configure the chroot, install GRUB. Every destructive step is printed
 first, and `--dry-run` shows the whole plan without touching the disk.
 
 ```bash
-sudo hexforge-install --dry-run --disk /dev/vda
-sudo hexforge-install --disk /dev/vda --fs btrfs --swap 8G --user you
+sudo undrabyte-install --dry-run --disk /dev/vda
+sudo undrabyte-install --disk /dev/vda --fs btrfs --swap 8G --user you
 ```
 
 ## On the ISO
 
 | Command | What it does |
 |---|---|
-| `hexforge` | **the launcher** — every tool on the image, one keyboard-driven menu |
-| `hexforge-theme` | dark mode across GTK, Qt/KDE, XFCE and the console (dark is the default) |
-| `hexforge-optimize` | tune for bare metal or for a VM, and undo it again |
-| `hexforge-welcome` | tour of the image |
-| `hexforge-vmcheck` | hypervisor, 3D, guest-agent and sharing health, with fixes |
-| `hexforge-game` | gaming stack check, launch options, `hexforge-game steam` |
-| `hexforge-toolkit` | enable BlackArch, install tool groups, bootstrap AUR |
-| `hexforge-install` | install to disk |
+| `undrabyte` | **the launcher** — every tool on the image, one keyboard-driven menu |
+| `undrabyte-theme` | dark mode across GTK, Qt/KDE, XFCE and the console (dark is the default) |
+| `undrabyte-optimize` | tune for bare metal or for a VM, and undo it again |
+| `undrabyte-welcome` | tour of the image |
+| `undrabyte-vmcheck` | hypervisor, 3D, guest-agent and sharing health, with fixes |
+| `undrabyte-game` | gaming stack check, launch options, `undrabyte-game steam` |
+| `undrabyte-toolkit` | enable BlackArch, install tool groups, bootstrap AUR |
+| `undrabyte-install` | install to disk |
 
 ## Repository layout
 
@@ -168,7 +168,7 @@ times and disk space.
 
 ## Use it legally
 
-HexForge ships tools that intercept traffic, crack credentials and exploit
+UndraByte ships tools that intercept traffic, crack credentials and exploit
 software. Those are legitimate professional tools, and using them against
 systems you neither own nor have **written permission** to test is a criminal
 offence in most of the world. Build a lab — [SECURITY-TOOLKIT.md](docs/SECURITY-TOOLKIT.md)

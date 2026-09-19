@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Install HexForge Linux from the live medium onto a disk.
+# Install UndraByte Linux from the live medium onto a disk.
 #
 # It does the same thing a careful person does by hand from the Arch wiki:
 # partition, format, pacstrap the package lists this ISO was built from,
@@ -8,12 +8,12 @@
 # every destructive step is printed before it runs, and --dry-run shows the
 # whole plan without touching anything.
 #
-# If you would rather use Arch's own installer, `hexforge-install --archinstall`
+# If you would rather use Arch's own installer, `undrabyte-install --archinstall`
 # hands over to `archinstall` instead.
 
 set -euo pipefail
 
-readonly SHARE=/usr/local/share/hexforge
+readonly SHARE=/usr/local/share/undrabyte
 readonly PKGDIR="$SHARE/packages"
 readonly TARGET=/mnt
 
@@ -35,7 +35,7 @@ run() {
 # ---------------------------------------------------------------- options --
 
 DISK=""
-HOSTNAME_="hexforge"
+HOSTNAME_="undrabyte"
 USERNAME=""
 FSTYPE="ext4"
 EDITION="full"
@@ -47,7 +47,7 @@ ENCRYPT=0
 
 usage() {
     cat <<EOF
-${BOLD}hexforge-install${RST} - install HexForge Linux to a disk
+${BOLD}undrabyte-install${RST} - install UndraByte Linux to a disk
 
   --disk DEV          target disk, e.g. /dev/sda or /dev/nvme0n1 (prompted if omitted)
   --hostname NAME     system hostname (default: $HOSTNAME_)
@@ -86,7 +86,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ $EUID -eq 0 ]] || die "run as root: sudo hexforge-install"
+[[ $EUID -eq 0 ]] || die "run as root: sudo undrabyte-install"
 [[ $FSTYPE == ext4 || $FSTYPE == btrfs ]] || die "--fs must be ext4 or btrfs"
 [[ -d $PKGDIR ]] || die "package lists missing at $PKGDIR"
 
@@ -199,7 +199,7 @@ fi
 step "Creating filesystems"
 (( UEFI )) && run mkfs.fat -F32 -n EFI "$P1"
 if [[ $FSTYPE == btrfs ]]; then
-    run mkfs.btrfs -f -L HexForge "$ROOTDEV"
+    run mkfs.btrfs -f -L UndraByte "$ROOTDEV"
     run mount "$ROOTDEV" "$TARGET"
     run btrfs subvolume create "$TARGET/@"
     run btrfs subvolume create "$TARGET/@home"
@@ -208,7 +208,7 @@ if [[ $FSTYPE == btrfs ]]; then
     run mkdir -p "$TARGET/home"
     run mount -o noatime,compress=zstd:3,subvol=@home "$ROOTDEV" "$TARGET/home"
 else
-    run mkfs.ext4 -F -L HexForge "$ROOTDEV"
+    run mkfs.ext4 -F -L UndraByte "$ROOTDEV"
     run mount "$ROOTDEV" "$TARGET"
 fi
 if (( UEFI )); then
@@ -239,28 +239,28 @@ if [[ -n $SWAP_SIZE ]]; then
     (( DRY_RUN )) || echo '/swap/swapfile none swap defaults 0 0' >> "$TARGET/etc/fstab"
 fi
 
-step "Copying HexForge configuration"
-for f in /etc/sysctl.d/99-hexforge.conf \
-         /etc/security/limits.d/99-hexforge.conf \
-         /etc/modprobe.d/hexforge-wifi.conf \
-         /etc/udev/rules.d/60-hexforge-input.rules \
+step "Copying UndraByte configuration"
+for f in /etc/sysctl.d/99-undrabyte.conf \
+         /etc/security/limits.d/99-undrabyte.conf \
+         /etc/modprobe.d/undrabyte-wifi.conf \
+         /etc/udev/rules.d/60-undrabyte-input.rules \
          /etc/pacman.conf \
          /usr/lib/os-release; do
     [[ -e $f ]] && run install -Dm0644 "$f" "$TARGET$f"
 done
 run install -Dm0644 /etc/sudoers.d/10-wheel "$TARGET/etc/sudoers.d/10-wheel"
 run chmod 0440 "$TARGET/etc/sudoers.d/10-wheel"
-# Note the glob: `hexforge-*` would miss the launcher itself.
-for b in /usr/local/bin/hexforge*; do
-    [[ $b == */hexforge-install ]] && continue
+# Note the glob: `undrabyte-*` would miss the launcher itself.
+for b in /usr/local/bin/undrabyte*; do
+    [[ $b == */undrabyte-install ]] && continue
     run install -Dm0755 "$b" "$TARGET$b"
 done
-run install -Dm0755 /usr/local/bin/hexforge-install "$TARGET/usr/local/bin/hexforge-install"
+run install -Dm0755 /usr/local/bin/undrabyte-install "$TARGET/usr/local/bin/undrabyte-install"
 run cp -r "$SHARE" "$TARGET/usr/local/share/" 2>/dev/null || true
 
 # Desktop menu entries and the dark defaults, so an installed system looks
 # and behaves exactly like the live one.
-for d in /usr/share/applications/hexforge*.desktop; do
+for d in /usr/share/applications/undrabyte*.desktop; do
     [[ -e $d ]] && run install -Dm0644 "$d" "$TARGET$d"
 done
 if [[ -d /etc/skel ]]; then
@@ -270,7 +270,7 @@ if [[ -d /etc/skel ]]; then
         cp -r /etc/skel/. "$TARGET/etc/skel/"
     fi
 fi
-[[ -e /etc/hexforge/theme ]] && run install -Dm0644 /etc/hexforge/theme "$TARGET/etc/hexforge/theme"
+[[ -e /etc/undrabyte/theme ]] && run install -Dm0644 /etc/undrabyte/theme "$TARGET/etc/undrabyte/theme"
 
 step "Configuring the installed system"
 CHROOT_SCRIPT=$(cat <<CHROOT
@@ -307,13 +307,13 @@ done
 
 # Same defaults the live image applies: dark theme, and tuning for whatever
 # this machine turns out to be.
-[ -x /usr/local/bin/hexforge-theme ] && runuser -u '$USERNAME' -- /usr/local/bin/hexforge-theme dark >/dev/null 2>&1 || true
-[ -x /usr/local/bin/hexforge-optimize ] && /usr/local/bin/hexforge-optimize apply >/dev/null 2>&1 || true
+[ -x /usr/local/bin/undrabyte-theme ] && runuser -u '$USERNAME' -- /usr/local/bin/undrabyte-theme dark >/dev/null 2>&1 || true
+[ -x /usr/local/bin/undrabyte-optimize ] && /usr/local/bin/undrabyte-optimize apply >/dev/null 2>&1 || true
 CHROOT
 )
 
 if (( UEFI )); then
-    CHROOT_SCRIPT+=$'\n'"grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=HexForge"
+    CHROOT_SCRIPT+=$'\n'"grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=UndraByte"
 else
     CHROOT_SCRIPT+=$'\n'"grub-install --target=i386-pc $DISK"
 fi
@@ -322,7 +322,7 @@ if (( ENCRYPT )); then
     CHROOT_SCRIPT+=$'\n'"mkinitcpio -P"
     CHROOT_SCRIPT+=$'\n'"sed -i \"s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\\\"cryptdevice=UUID=\$(blkid -s UUID -o value $P2):cryptroot root=/dev/mapper/cryptroot\\\"|\" /etc/default/grub"
 fi
-CHROOT_SCRIPT+=$'\n'"sed -i 's/^GRUB_DISTRIBUTOR=.*/GRUB_DISTRIBUTOR=\"HexForge\"/' /etc/default/grub"
+CHROOT_SCRIPT+=$'\n'"sed -i 's/^GRUB_DISTRIBUTOR=.*/GRUB_DISTRIBUTOR=\"UndraByte\"/' /etc/default/grub"
 CHROOT_SCRIPT+=$'\n'"grub-mkconfig -o /boot/grub/grub.cfg"
 
 if (( DRY_RUN )); then
@@ -335,11 +335,11 @@ fi
 step "Done"
 cat <<EOF
 
-HexForge is installed on $DISK.
+UndraByte is installed on $DISK.
 
   ${DIM}umount -R $TARGET$( ((ENCRYPT)) && echo " && cryptsetup close cryptroot" )
   reboot${RST}
 
 Remove the installation medium when the machine restarts. After first boot,
-run ${BOLD}hexforge-vmcheck${RST} and ${BOLD}hexforge-toolkit status${RST}.
+run ${BOLD}undrabyte-vmcheck${RST} and ${BOLD}undrabyte-toolkit status${RST}.
 EOF

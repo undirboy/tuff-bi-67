@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=HexForge Launcher
+Name=UndraByte Launcher
 GenericName=Control Centre
 Comment=Every tool on this image, in one place
-Exec=hexforge
+Exec=undrabyte
 Icon=applications-system
 Terminal=true
 Categories=System;Settings;
-Keywords=hexforge;launcher;tools;security;
+Keywords=undrabyte;launcher;tools;security;
 StartupNotify=false

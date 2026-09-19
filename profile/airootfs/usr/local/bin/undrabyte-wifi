@@ -7,11 +7,11 @@
 # against a wordlist offline. It refuses to run without you naming the BSSID
 # you are targeting, so it cannot be pointed at a network in passing.
 #
-#   hexforge-wifi                 guided run: pick adapter, scan, capture, crack
-#   hexforge-wifi scan            just scan for your networks
-#   hexforge-wifi capture <bssid> <chan>   capture a handshake
-#   hexforge-wifi crack <file> [wordlist]  crack a captured handshake
-#   hexforge-wifi restore         put the adapter back to managed mode
+#   undrabyte-wifi                 guided run: pick adapter, scan, capture, crack
+#   undrabyte-wifi scan            just scan for your networks
+#   undrabyte-wifi capture <bssid> <chan>   capture a handshake
+#   undrabyte-wifi crack <file> [wordlist]  crack a captured handshake
+#   undrabyte-wifi restore         put the adapter back to managed mode
 #
 # Everything here targets ONE bssid that you type in. Using it against a
 # network you do not own or administer is illegal in most of the world; see
@@ -22,7 +22,7 @@ set -uo pipefail
 BOLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
 RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; CYN=$'\033[36m'
 
-readonly WORKDIR="${HEXFORGE_WIFI_DIR:-$HOME/wifi-captures}"
+readonly WORKDIR="${UNDRABYTE_WIFI_DIR:-$HOME/wifi-captures}"
 
 die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
 info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
@@ -38,7 +38,7 @@ need_root() {
 confirm_ownership() {
     # Skip when the caller has already asserted ownership (scripted use on a
     # lab of your own), but make that an explicit, recorded choice.
-    [[ ${HEXFORGE_WIFI_I_OWN_THIS:-0} == 1 ]] && return 0
+    [[ ${UNDRABYTE_WIFI_I_OWN_THIS:-0} == 1 ]] && return 0
 
     cat <<EOF
 
@@ -79,7 +79,7 @@ pick_iface() {
     (( ${#ifs[@]} )) || die "no wireless interface found.
 
     A VM's virtio NIC has no radio. Pass a real USB WiFi adapter through:
-      host:  ./scripts/run-vm.sh --disk vm/hexforge.qcow2 --wifi
+      host:  ./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --wifi
     then run this again inside the guest."
     if (( ${#ifs[@]} == 1 )); then printf '%s\n' "${ifs[0]}"; return; fi
     printf '%sWireless interfaces:%s\n' "$BOLD" "$RST" >&2
@@ -145,7 +145,7 @@ EOF
         info "capture saved: ${CYN}$cap${RST}"
         if have aircrack-ng && aircrack-ng "$cap" 2>/dev/null | grep -q '1 handshake'; then
             printf '%s  a handshake is present - crack it with:%s\n' "$GRN" "$RST"
-            printf '    hexforge-wifi crack %s\n' "$cap"
+            printf '    undrabyte-wifi crack %s\n' "$cap"
         else
             warn "no complete handshake captured yet. Re-run, and deauth a connected device to force one."
         fi
@@ -163,8 +163,8 @@ cmd_crack() {
         done
     fi
     [[ -n $wordlist && -f $wordlist ]] || die "no wordlist found. Pass one:
-    hexforge-wifi crack $cap /path/to/wordlist.txt
-    (rockyou lives in the 'seclists' AUR package: hexforge-toolkit aur seclists)"
+    undrabyte-wifi crack $cap /path/to/wordlist.txt
+    (rockyou lives in the 'seclists' AUR package: undrabyte-toolkit aur seclists)"
 
     info "cracking $cap against $(basename "$wordlist")"
     printf '%s  This is an offline dictionary attack: it only finds passwords\n  that are in the wordlist. A strong passphrase will not be in one.%s\n\n' \
@@ -191,7 +191,7 @@ cmd_restore() {
 
 guided() {
     cat <<EOF
-${BOLD}HexForge WiFi handshake exercise${RST}
+${BOLD}UndraByte WiFi handshake exercise${RST}
 
 This is the standard way to learn how WPA2 holds up: capture the 4-way
 handshake when a device joins ${BOLD}your own${RST} access point, then try to recover the
@@ -204,25 +204,25 @@ passphrase offline. Steps:
 
 EOF
     read -rp "Start with a scan? [Y/n] " go
-    [[ ${go,,} == n* ]] && { info "run 'hexforge-wifi scan' when ready"; exit 0; }
+    [[ ${go,,} == n* ]] && { info "run 'undrabyte-wifi scan' when ready"; exit 0; }
     confirm_ownership
     cmd_scan
     cat <<EOF
 
 Note the ${BOLD}BSSID${RST} and ${BOLD}CH${RST} (channel) of your network from the scan, then:
-  ${CYN}hexforge-wifi capture <BSSID> <channel>${RST}
+  ${CYN}undrabyte-wifi capture <BSSID> <channel>${RST}
 and afterwards:
-  ${CYN}hexforge-wifi crack <the .cap file>${RST}
-  ${CYN}hexforge-wifi restore${RST}
+  ${CYN}undrabyte-wifi crack <the .cap file>${RST}
+  ${CYN}undrabyte-wifi restore${RST}
 EOF
 }
 
 case ${1-} in
     ""|guided) guided ;;
     scan)      cmd_scan "$@" ;;
-    capture)   shift; [[ $# -ge 2 ]] || die "usage: hexforge-wifi capture <bssid> <channel>"; cmd_capture "$@" ;;
-    crack)     shift; [[ $# -ge 1 ]] || die "usage: hexforge-wifi crack <file.cap> [wordlist]"; cmd_crack "$@" ;;
+    capture)   shift; [[ $# -ge 2 ]] || die "usage: undrabyte-wifi capture <bssid> <channel>"; cmd_capture "$@" ;;
+    crack)     shift; [[ $# -ge 1 ]] || die "usage: undrabyte-wifi crack <file.cap> [wordlist]"; cmd_crack "$@" ;;
     restore)   cmd_restore "$@" ;;
     -h|--help) sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//' ;;
-    *)         die "unknown command: $1 (try: hexforge-wifi --help)" ;;
+    *)         die "unknown command: $1 (try: undrabyte-wifi --help)" ;;
 esac

@@ -26,13 +26,13 @@ Files are numbered by concern, and the edition decides which are used:
 | `70-extras.list` | dev, security, gaming, full |
 | `90-blackarch.list` | only with `--with-blackarch` |
 | `95-nvidia.list` | only with `--with-nvidia` |
-| `aur-optional.list` | never baked in; installed later by `hexforge-toolkit aur` |
+| `aur-optional.list` | never baked in; installed later by `undrabyte-toolkit aur` |
 
 ## Add a new edition
 
 In `scripts/lib/common.sh`, extend the `case` in `edition_lists()`. Mirror it
 in the `resolve_packages()` case inside
-`profile/airootfs/usr/local/bin/hexforge-install`, then add the name to the
+`profile/airootfs/usr/local/bin/undrabyte-install`, then add the name to the
 matrix loop in `scripts/lint.sh`. Three small edits, and `./scripts/lint.sh`
 will tell you if you missed one.
 
@@ -41,22 +41,22 @@ will tell you if you missed one.
 Create `packages/30-desktop-<name>.list`, then teach `build-iso.sh` which
 display-manager unit to symlink (the `case $DESKTOP` block near "Display
 manager wiring"). For a DM other than SDDM or LightDM, add an autologin
-branch to `profile/airootfs/usr/lib/hexforge/live-setup.sh`.
+branch to `profile/airootfs/usr/lib/undrabyte/live-setup.sh`.
 
 ## Change the live credentials
 
-`profile/airootfs/etc/hexforge/live.conf`:
+`profile/airootfs/etc/undrabyte/live.conf`:
 
 ```sh
-HEXFORGE_LIVE_USER=forge
-HEXFORGE_LIVE_PASSWORD=forge
-HEXFORGE_LIVE_NOPASSWD_SUDO=1      # 0 = require a password for sudo
-HEXFORGE_LIVE_ROOT_ENABLED=0       # 1 = unlock root with the same password
+UNDRABYTE_LIVE_USER=forge
+UNDRABYTE_LIVE_PASSWORD=forge
+UNDRABYTE_LIVE_NOPASSWD_SUDO=1      # 0 = require a password for sudo
+UNDRABYTE_LIVE_ROOT_ENABLED=0       # 1 = unlock root with the same password
 ```
 
 A published password on a live image is fine on your own lab network and a bad
 idea anywhere else. If the image will boot somewhere you do not control, set a
-real password and `HEXFORGE_LIVE_NOPASSWD_SUDO=0`.
+real password and `UNDRABYTE_LIVE_NOPASSWD_SUDO=0`.
 
 ## Ship your own dotfiles
 
@@ -94,7 +94,7 @@ ln -sfn /usr/lib/systemd/system/sshd.service \
 - `profile/airootfs/usr/lib/os-release` — name, ID, URLs
 - `profile/profiledef.sh` — `iso_name`, `iso_label`, `iso_publisher`
 - `profile/grub/grub.cfg` and `profile/syslinux/archiso_*.cfg` — boot menus
-- `profile/airootfs/usr/local/bin/hexforge-welcome` — the ASCII banner
+- `profile/airootfs/usr/local/bin/undrabyte-welcome` — the ASCII banner
 - `profile/airootfs/etc/motd` — the console message
 
 `iso_label` becomes the filesystem label the initramfs searches for, so keep

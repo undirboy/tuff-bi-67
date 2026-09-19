@@ -1,4 +1,4 @@
-# ~/.bashrc - HexForge defaults
+# ~/.bashrc - UndraByte defaults
 [[ $- != *i* ]] && return
 
 alias ls='ls --color=auto'
@@ -15,7 +15,7 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # MangoHud only when asked for, never globally: it breaks some GL apps.
 alias mh='mangohud'
-alias game='hexforge-game run'
+alias game='undrabyte-game run'
 
 if command -v starship &>/dev/null; then
     eval "$(starship init bash)"
@@ -24,8 +24,8 @@ else
 fi
 
 # One-time greeting per boot, not per shell.
-if [[ -z ${HEXFORGE_GREETED-} && ! -e /run/hexforge-greeted ]]; then
-    export HEXFORGE_GREETED=1
-    command -v hexforge-welcome &>/dev/null && hexforge-welcome
-    : > /run/hexforge-greeted 2>/dev/null || true
+if [[ -z ${UNDRABYTE_GREETED-} && ! -e /run/undrabyte-greeted ]]; then
+    export UNDRABYTE_GREETED=1
+    command -v undrabyte-welcome &>/dev/null && undrabyte-welcome
+    : > /run/undrabyte-greeted 2>/dev/null || true
 fi

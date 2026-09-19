@@ -13,23 +13,23 @@ decides what will and will not run:
 | **GPU passthrough (VFIO)** | native | native | everything, at near-bare-metal speed |
 | Bare metal | native | native | everything |
 
-Steam, Proton and DXVK need **Vulkan**. If `hexforge-game check` reports no
+Steam, Proton and DXVK need **Vulkan**. If `undrabyte-game check` reports no
 Vulkan device, Proton titles will not launch, no matter how much RAM you give
 the VM.
 
 ## Check the stack
 
 ```bash
-hexforge-game check      # drivers, Vulkan devices, gamemode, limits
-hexforge-game tips       # launch options and VM advice
-hexforge-vmcheck         # the host-side settings behind any of this
+undrabyte-game check      # drivers, Vulkan devices, gamemode, limits
+undrabyte-game tips       # launch options and VM advice
+undrabyte-vmcheck         # the host-side settings behind any of this
 ```
 
 ## Launching games
 
 ```bash
-hexforge-game steam           # Steam with gamemode + MangoHud
-hexforge-game run ./mygame    # anything else, same wrappers
+undrabyte-game steam           # Steam with gamemode + MangoHud
+undrabyte-game run ./mygame    # anything else, same wrappers
 ```
 
 Per-title Steam launch options:
@@ -55,11 +55,11 @@ GOG and Amazon do not ship one, so they run through community launchers:
   fine over SSH.
 
 Both are AUR-only, so they are not in the ISO (an AUR build cannot be part of
-a reproducible image). `hexforge-game` installs them on demand:
+a reproducible image). `undrabyte-game` installs them on demand:
 
 ```bash
-hexforge-game epic          # launch Heroic, or install it on first use
-hexforge-game legendary     # the Epic CLI
+undrabyte-game epic          # launch Heroic, or install it on first use
+undrabyte-game legendary     # the Epic CLI
 ```
 
 Because these run Epic/GOG titles through Proton or Wine, everything below
@@ -78,7 +78,7 @@ needs a working GL context — that means an X11 or Wayland session, not SSH.
 
 For **Vulkan** in the guest (venus), the host needs a reasonably recent
 Mesa and QEMU built with virglrenderer + venus support, and the guest needs
-`vulkan-virtio` — which HexForge installs. Verify with `vulkaninfo --summary`
+`vulkan-virtio` — which UndraByte installs. Verify with `vulkaninfo --summary`
 inside the guest.
 
 ## GPU passthrough (VFIO) — the real answer
@@ -113,7 +113,7 @@ Useful extras once it works:
 - **CPU pinning** (`<cputune>` in libvirt) so guest vCPUs get dedicated cores
 - Pass the GPU's **HDMI audio function** through as well, or you get no sound
 
-Passthrough is a host-side configuration exercise; HexForge is ready for it
+Passthrough is a host-side configuration exercise; UndraByte is ready for it
 the moment the card appears in the guest.
 
 ## Emulation
@@ -146,5 +146,5 @@ Worth doing yourself on an installed system:
 ```bash
 sudo pacman -S linux-zen        # lower-latency scheduler tuning
 sudo systemctl enable --now gamemoded
-hexforge-toolkit aur            # protonup-qt (Proton-GE), goverlay, heroic
+undrabyte-toolkit aur            # protonup-qt (Proton-GE), goverlay, heroic
 ```

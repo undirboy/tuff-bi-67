@@ -21,7 +21,7 @@ git clone https://github.com/undirboy/tuff-bi-67 && cd tuff-bi-67
 sudo ./scripts/build-iso.sh
 ```
 
-The ISO lands in `out/hexforge-<version>-x86_64.iso`.
+The ISO lands in `out/undrabyte-<version>-x86_64.iso`.
 
 ## On anything else (Docker)
 
@@ -82,7 +82,7 @@ chmod +x strap.sh && sudo ./strap.sh
 failing 40 minutes in on a signature error.
 
 If you would rather not bake thousands of tools into the image, skip this and
-run `hexforge-toolkit enable-blackarch` inside the live system instead.
+run `undrabyte-toolkit enable-blackarch` inside the live system instead.
 
 ## The preflight check
 
@@ -137,8 +137,8 @@ often.
 Arch is a rolling release: two builds a week apart contain different package
 versions. The image records what it was built from:
 
-- `/usr/local/share/hexforge/packages/` — the manifests used
-- `/root/hexforge-pkglist.txt` — written by mkarchiso, exact versions
+- `/usr/local/share/undrabyte/packages/` — the manifests used
+- `/root/undrabyte-pkglist.txt` — written by mkarchiso, exact versions
 
 For a byte-reproducible build you need a pinned mirror (e.g. the [Arch Linux
 Archive](https://archive.archlinux.org/)). Point `Server =` in

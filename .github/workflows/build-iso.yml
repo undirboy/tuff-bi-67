@@ -63,7 +63,7 @@ jobs:
         if: ${{ inputs.upload }}
         uses: actions/upload-artifact@v4
         with:
-          name: hexforge-${{ inputs.edition }}-${{ inputs.desktop }}
+          name: undrabyte-${{ inputs.edition }}-${{ inputs.desktop }}
           path: out/
           retention-days: 7
           compression-level: 0

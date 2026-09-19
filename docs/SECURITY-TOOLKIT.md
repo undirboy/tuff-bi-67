@@ -36,9 +36,9 @@ Installed from the official Arch repositories (`packages/50-security.list`):
 running system cleanly.
 
 ```bash
-hexforge-toolkit enable-blackarch     # installs the signing keyring + mirrorlist
-hexforge-toolkit groups               # what's available
-sudo hexforge-toolkit install recon webapp
+undrabyte-toolkit enable-blackarch     # installs the signing keyring + mirrorlist
+undrabyte-toolkit groups               # what's available
+sudo undrabyte-toolkit install recon webapp
 ```
 
 Sizes are real: `recon` alone is around 1.5 GB, and installing every group is
@@ -54,8 +54,8 @@ amass, feroxbuster, netexec, BloodHound, SecLists, pwndbg, volatility3. They
 are listed in `packages/aur-optional.list` and built on demand:
 
 ```bash
-sudo hexforge-toolkit aur                 # the whole curated list
-sudo hexforge-toolkit aur seclists pwndbg # or just these
+sudo undrabyte-toolkit aur                 # the whole curated list
+sudo undrabyte-toolkit aur seclists pwndbg # or just these
 ```
 
 This bootstraps `paru` first and builds as your unprivileged user. They are
@@ -112,7 +112,7 @@ VMs cannot reach the internet or your LAN:
 
 ```xml
 <network>
-  <name>hexforge-lab</name>
+  <name>undrabyte-lab</name>
   <bridge name='virbr-lab'/>
   <ip address='10.99.0.1' netmask='255.255.255.0'>
     <dhcp><range start='10.99.0.100' end='10.99.0.200'/></dhcp>
@@ -135,13 +135,13 @@ sudo. Before using it anywhere that matters:
 
 ```bash
 sudo passwd forge                              # a real password
-sudo rm /etc/sudoers.d/99-hexforge-live        # require a password for sudo
+sudo rm /etc/sudoers.d/99-undrabyte-live        # require a password for sudo
 sudo systemctl enable --now nftables           # a firewall
 sudo lynis audit system                        # see what else is loose
 ```
 
-Or build the image with `HEXFORGE_LIVE_NOPASSWD_SUDO=0` and a real password in
-`profile/airootfs/etc/hexforge/live.conf` — see [CUSTOMISING.md](CUSTOMISING.md).
+Or build the image with `UNDRABYTE_LIVE_NOPASSWD_SUDO=0` and a real password in
+`profile/airootfs/etc/undrabyte/live.conf` — see [CUSTOMISING.md](CUSTOMISING.md).
 
 `sshd` is installed but **not enabled**, deliberately: a live image with a
 published password and an open SSH port is a machine someone else owns.

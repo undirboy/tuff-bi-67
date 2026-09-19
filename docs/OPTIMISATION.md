@@ -5,15 +5,15 @@ work the host is already doing — scheduling I/O, managing thermals, balancing
 interrupts — and spend those cycles on the desktop. Bare metal should do all
 of it, because nothing else will.
 
-`hexforge-optimize` detects which one you are and applies the right set.
+`undrabyte-optimize` detects which one you are and applies the right set.
 
 ```bash
-hexforge-optimize status              # what is tuned, and what is not
-sudo hexforge-optimize apply          # detect the platform, tune for it
-sudo hexforge-optimize apply vm       # force the VM profile
-sudo hexforge-optimize apply metal    # force the bare-metal profile
-sudo hexforge-optimize apply --aggressive
-sudo hexforge-optimize revert         # undo everything it did
+undrabyte-optimize status              # what is tuned, and what is not
+sudo undrabyte-optimize apply          # detect the platform, tune for it
+sudo undrabyte-optimize apply vm       # force the VM profile
+sudo undrabyte-optimize apply metal    # force the bare-metal profile
+sudo undrabyte-optimize apply --aggressive
+sudo undrabyte-optimize revert         # undo everything it did
       --dry-run                       # print every change, make none
 ```
 
@@ -37,7 +37,7 @@ run it once after installing.
 8 GB, half of RAM (capped at 8 GB) above that. Compressed swap in RAM is the
 single biggest win on a small guest — typically 1.5–2× the usable memory.
 
-**sysctl**, in `/etc/sysctl.d/98-hexforge-optimize.conf`:
+**sysctl**, in `/etc/sysctl.d/98-undrabyte-optimize.conf`:
 
 - `vm.swappiness` — 10 normally, but **100** at ≤6 GB. Counter-intuitive
   until you notice that swapping to compressed RAM is far cheaper than
@@ -64,26 +64,26 @@ guest, unnecessary on a workstation:
 
 ## Undoing it
 
-Every change is recorded in `/var/lib/hexforge/optimize.state` — files
+Every change is recorded in `/var/lib/undrabyte/optimize.state` — files
 written, units enabled, units disabled — and `revert` walks that list
 backwards. It is not a guess about what the defaults were; it is a log of what
 was actually changed.
 
 ```bash
-sudo hexforge-optimize revert
+sudo undrabyte-optimize revert
 ```
 
 ## Checking your work
 
 ```bash
-hexforge-optimize status
+undrabyte-optimize status
 ```
 
 reports the detected platform, memory, cores, whether there is a battery, the
 applied profile, the scheduler on every block device, zram size and current
 swappiness — plus the list of changes on record.
 
-For graphics and hypervisor integration specifically, `hexforge-vmcheck` is
+For graphics and hypervisor integration specifically, `undrabyte-vmcheck` is
 the better tool; it prints the **host-side** fix for anything that is wrong.
 
 ## What it deliberately does not do

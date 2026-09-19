@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=HexForge VM Health
+Name=UndraByte VM Health
 Comment=Hypervisor, 3D acceleration, guest agent and folder sharing
-Exec=sh -c 'hexforge-vmcheck; echo; read -p "Press Enter to close " _'
+Exec=sh -c 'undrabyte-vmcheck; echo; read -p "Press Enter to close " _'
 Icon=computer
 Terminal=true
 Categories=System;

@@ -1,6 +1,6 @@
 # How the build works
 
-HexForge is an [archiso](https://gitlab.archlinux.org/archlinux/archiso)
+UndraByte is an [archiso](https://gitlab.archlinux.org/archlinux/archiso)
 profile with a generated package list. Nothing here is magic; the value is in
 the assembly.
 
@@ -27,7 +27,7 @@ profile/ ────────┘        (staging)          (generated)
    generated rather than committed because a dangling SDDM symlink on an XFCE
    image means no login screen.
 5. **Copies the manifests and docs** into the image at
-   `/usr/local/share/hexforge/`, so `hexforge-install` and `hexforge-toolkit`
+   `/usr/local/share/undrabyte/`, so `undrabyte-install` and `undrabyte-toolkit`
    can read them at runtime.
 6. **Appends the BlackArch repo** to the staged `pacman.conf` when asked, after
    checking the build host has the keyring.
@@ -71,16 +71,16 @@ OVMF, VirtualBox and VMware firmware.
 
 | Path | Why |
 |---|---|
-| `usr/local/lib/hexforge/os-release` | branding source, applied to `/usr/lib/os-release` by a pacman hook |
+| `usr/local/lib/undrabyte/os-release` | branding source, applied to `/usr/lib/os-release` by a pacman hook |
 | `etc/pacman.d/hooks/` | the branding hook — the overlay cannot ship `/usr/lib/os-release` directly |
-| `etc/hexforge/live.conf` | live username, password, sudo policy |
-| `usr/lib/hexforge/live-setup.sh` | creates the live user, configures autologin, starts the right guest agent |
+| `etc/undrabyte/live.conf` | live username, password, sudo policy |
+| `usr/lib/undrabyte/live-setup.sh` | creates the live user, configures autologin, starts the right guest agent |
 | `etc/systemd/system/*.target.wants/` | service enablement — archiso never runs `systemctl enable` |
 | `etc/mkinitcpio.conf.d/archiso.conf` | the hooks that make a squashfs-on-ISO root bootable |
-| `etc/sysctl.d/99-hexforge.conf` | `vm.max_map_count` for Proton, `ptrace_scope=0` for debugging |
-| `etc/security/limits.d/99-hexforge.conf` | file descriptors for esync, realtime priority for audio |
+| `etc/sysctl.d/99-undrabyte.conf` | `vm.max_map_count` for Proton, `ptrace_scope=0` for debugging |
+| `etc/security/limits.d/99-undrabyte.conf` | file descriptors for esync, realtime priority for audio |
 | `etc/skel/` | shell config, MangoHud, Starship prompt |
-| `usr/local/bin/hexforge-*` | the tools described in the README |
+| `usr/local/bin/undrabyte-*` | the tools described in the README |
 
 ## Why a runtime setup service instead of baked-in accounts
 
@@ -89,18 +89,18 @@ and `/etc/shadow` to add a *desktop* user is worse than it looks: the overlay
 lands after pacstrap, so it would erase the service accounts (`sddm`,
 `polkitd`, `usbmux`, …) that packages created during installation.
 
-`hexforge-live-setup.service` avoids that. It is gated on
+`undrabyte-live-setup.service` avoids that. It is gated on
 `ConditionPathExists=/run/archiso`, so it runs only on live media, and it:
 
 - creates the live user with `useradd`, adding only groups that actually exist
   in this edition;
-- sets the password from `/etc/hexforge/live.conf`;
+- sets the password from `/etc/undrabyte/live.conf`;
 - writes SDDM or LightDM autologin config for whichever is installed, unless
-  `hexforge.nodm=1` is on the kernel command line;
+  `undrabyte.nodm=1` is on the kernel command line;
 - detects the hypervisor with `systemd-detect-virt` and starts the matching
   guest agent.
 
-An installed system never runs it — `hexforge-install` configures a real
+An installed system never runs it — `undrabyte-install` configures a real
 account instead.
 
 ## Where edition logic lives
@@ -108,7 +108,7 @@ account instead.
 Two places, deliberately mirrored:
 
 - `scripts/lib/common.sh` → `edition_lists()`, used at **build** time.
-- `/usr/local/bin/hexforge-install` → `resolve_packages()`, used at **install**
+- `/usr/local/bin/undrabyte-install` → `resolve_packages()`, used at **install**
   time, reading the manifests copied into the image.
 
 If you add an edition, add it to both. `scripts/lint.sh` walks every

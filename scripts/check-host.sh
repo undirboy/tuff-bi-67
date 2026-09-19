@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Can this machine build and run HexForge?
+# Can this machine build and run UndraByte?
 #
-# Run it on your own computer - not inside a HexForge guest - and it will tell
+# Run it on your own computer - not inside a UndraByte guest - and it will tell
 # you what works, what does not, and which editions your hardware can
 # actually carry.
 #
@@ -58,7 +58,7 @@ if [[ $OS == Linux ]] && have systemd-detect-virt; then
     v="$(systemd-detect-virt 2>/dev/null || echo none)"
     if [[ $v != none ]]; then
         row "already virtualised" "$v"
-        note "You are inside a VM. Running HexForge here means nested virtualisation,"
+        note "You are inside a VM. Running UndraByte here means nested virtualisation,"
         note "which needs to be enabled on the outer hypervisor to be usable."
     fi
 fi
@@ -106,7 +106,7 @@ case $OS in
         row "logical cpus" "$host_cpus"
         if [[ "$(uname -m)" == arm64 ]]; then
             row "architecture" "$MEH Apple silicon (arm64)"
-            block "HexForge is an x86_64 image. On an M-series Mac it can only run under full emulation (UTM/QEMU with TCG), which is far too slow for a desktop. Use an x86_64 machine, or build an aarch64 variant."
+            block "UndraByte is an x86_64 image. On an M-series Mac it can only run under full emulation (UTM/QEMU with TCG), which is far too slow for a desktop. Use an x86_64 machine, or build an aarch64 variant."
         else
             row "architecture" "x86_64 (Intel Mac)"
             if [[ "$(sysctl -n kern.hv_support 2>/dev/null)" == 1 ]]; then
@@ -244,7 +244,7 @@ fi
 
 printf '\n'
 if (( ${#blockers[@]} == 0 )); then
-    printf '%sThis machine can run HexForge virtually.%s\n\n' "$C_GRN" "$C_RST"
+    printf '%sThis machine can run UndraByte virtually.%s\n\n' "$C_GRN" "$C_RST"
     desktop=kde
     if   (( mem_gb >= 16 && host_cpus >= 8 )); then rec="full"
     elif (( mem_gb >= 12 && host_cpus >= 6 )); then rec="security"
