@@ -1,0 +1,2 @@
+# Members of the wheel group may use sudo after entering their password.
+%wheel ALL=(ALL:ALL) ALL

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=UndraByte Game Check
+Comment=Drivers, Vulkan, gamemode and launch options
+Exec=sh -c 'undrabyte-game check; echo; undrabyte-game tips; echo; read -p "Press Enter to close " _'
+Icon=applications-games
+Terminal=true
+Categories=Game;System;

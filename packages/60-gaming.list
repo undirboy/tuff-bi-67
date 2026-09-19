@@ -1,0 +1,54 @@
+# Gaming stack. Requires [multilib]; the build script enables it automatically.
+
+steam
+lutris
+# Epic and GOG have no native Linux client. Heroic (GUI) and Legendary (CLI)
+# are AUR-only, so they are not baked in; `undrabyte-game epic` installs them
+# on demand. See packages/aur-optional.list.
+gamemode
+lib32-gamemode
+gamescope
+mangohud
+lib32-mangohud
+
+# Wine / Proton runtime
+wine
+wine-mono
+wine-gecko
+winetricks
+vkd3d
+lib32-vkd3d
+lib32-mesa
+lib32-vulkan-icd-loader
+lib32-vulkan-swrast
+lib32-vulkan-virtio
+
+# open driver stack for bare metal (harmless inside a VM)
+vulkan-radeon
+lib32-vulkan-radeon
+vulkan-intel
+lib32-vulkan-intel
+
+# audio
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-jack
+lib32-pipewire
+wireplumber
+alsa-utils
+pavucontrol
+
+# controllers
+# Steam ships its own udev rules for controllers, and /dev/uinput access is
+# handled by profile/airootfs/etc/udev/rules.d/60-undrabyte-input.rules.
+# game-devices-udev is AUR-only if you want the wider device set.
+sdl2-compat
+# no lib32-sdl2-compat in multilib; Steam pulls the 32-bit SDL it needs
+
+# emulation & a few FOSS titles to prove the stack works
+retroarch
+retroarch-assets-xmb
+supertuxkart
+0ad
+wesnoth

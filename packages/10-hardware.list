@@ -1,0 +1,13 @@
+# Firmware and drivers for physical machines.
+# Skipped by `--vm-only` builds, which trims roughly 400 MB from the ISO.
+
+alsa-firmware
+alsa-ucm-conf
+b43-fwcutter
+# broadcom-wl is no longer in the official repos; it is AUR-only now
+# (broadcom-wl-dkms). Old Broadcom wireless chips need it installed after
+# first boot: undrabyte-toolkit aur broadcom-wl-dkms
+linux-firmware-marvell
+sof-firmware
+upower
+usb_modeswitch

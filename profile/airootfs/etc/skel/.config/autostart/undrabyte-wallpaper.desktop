@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=UndraByte Wallpaper
+Comment=Applies the default wallpaper on first login
+Exec=undrabyte-set-wallpaper
+Icon=preferences-desktop-wallpaper
+Terminal=false
+X-XFCE-Autostart-enabled=true
+NoDisplay=true

@@ -1,0 +1,31 @@
+# KDE Plasma edition (default): best Wayland + gaming + HiDPI story.
+
+plasma-desktop
+plasma-nm
+plasma-pa
+plasma-systemmonitor
+plasma-workspace-wallpapers
+powerdevil
+kscreen
+kinfocenter
+kwalletmanager
+sddm
+sddm-kcm
+breeze-gtk
+breeze-icons
+gnome-themes-extra
+xdg-desktop-portal-kde
+xdg-user-dirs
+
+dolphin
+konsole
+kate
+ark
+spectacle
+gwenview
+okular
+partitionmanager
+
+# graphical app store, so installing software needs no terminal
+discover
+packagekit

@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+#
+# Gaming stack diagnostics and launcher.
+#
+#   undrabyte-game check          is the machine able to run games at all
+#   undrabyte-game steam [args]   launch Steam with gamemode + MangoHud
+#   undrabyte-game run <cmd...>   run anything with gamemode + MangoHud
+#   undrabyte-game tips           launch options and VM-specific advice
+
+set -uo pipefail
+
+BOLD=$'\033[1m'; RST=$'\033[0m'; DIM=$'\033[2m'
+OK=$'\033[32mok\033[0m'; BAD=$'\033[31mmissing\033[0m'; WARN=$'\033[33mwarn\033[0m'
+
+have() { command -v "$1" &>/dev/null; }
+
+cmd_check() {
+    printf '%sGaming stack%s\n\n' "$BOLD" "$RST"
+
+    local tool
+    for tool in steam heroic legendary lutris wine gamemoderun mangohud gamescope vulkaninfo; do
+        if have "$tool"; then
+            printf '  %-14s %s\n' "$tool" "$OK"
+        else
+            printf '  %-14s %s\n' "$tool" "$BAD"
+        fi
+    done
+
+    printf '\n%sGraphics%s\n\n' "$BOLD" "$RST"
+    if have vulkaninfo; then
+        local devs
+        devs="$(vulkaninfo --summary 2>/dev/null | awk -F'= ' '/deviceName/{print $2}')"
+        if [[ -n $devs ]]; then
+            while read -r d; do printf '  vulkan        %s  %s\n' "$OK" "$d"; done <<<"$devs"
+        else
+            printf '  vulkan        %s  no device - Proton and DXVK will not work\n' "$BAD"
+        fi
+    fi
+    if have glxinfo; then
+        local gl
+        gl="$(glxinfo -B 2>/dev/null | awk -F': ' '/OpenGL renderer/{print $2; exit}')"
+        printf '  opengl        %s  %s\n' "$OK" "${gl:-unknown}"
+        [[ $gl == *llvmpipe* ]] && printf '  %saccel         %s  software rendering only - see: undrabyte-game tips%s\n' "$DIM" "$WARN" "$RST"
+    fi
+
+    if ! have vulkaninfo && ! have glxinfo; then
+        printf '  %s no graphics tools installed - cannot inspect the driver\n' "$WARN"
+        printf '  %sinstall vulkan-tools and mesa-utils to see what this machine can render%s\n' "$DIM" "$RST"
+    fi
+
+    printf '\n%sSystem%s\n\n' "$BOLD" "$RST"
+    printf '  %-14s %s\n' "vm.max_map_count" "$(sysctl -n vm.max_map_count)"
+    printf '  %-14s %s\n' "open files" "$(ulimit -Hn)"
+    if [[ -d /sys/fs/cgroup ]] && have gamemoded; then
+        printf '  %-14s %s\n' "gamemode" "$(gamemoded -s 2>/dev/null || echo 'not running')"
+    fi
+    printf '  %-14s %s\n' "controllers" \
+        "$(find /dev/input -maxdepth 1 -name 'js*' 2>/dev/null | wc -l) joystick node(s)"
+}
+
+wrap() {
+    local -a pre=()
+    have gamemoderun && pre+=(gamemoderun)
+    have mangohud && pre+=(mangohud)
+    printf '%s==>%s %s %s\n' "$BOLD" "$RST" "${pre[*]-}" "$*"
+    exec "${pre[@]}" "$@"
+}
+
+cmd_steam() {
+    have steam || { echo "steam is not installed (build with --edition full or pacman -S steam)" >&2; exit 1; }
+    wrap steam "$@"
+}
+
+# Launch a store client, or offer to install it if it is AUR-only and absent.
+# Epic and GOG have no native Linux clients; Heroic (GUI) and Legendary (CLI)
+# are the community launchers, and both live in the AUR - so they cannot be
+# baked into a reproducible ISO. This installs on demand instead.
+launch_or_offer_aur() {
+    local bin=$1 pkg=$2 label=$3
+    if have "$bin"; then
+        wrap "$bin" "${@:4}"
+    fi
+    printf '%s%s is not installed.%s It is not in the official repos - the
+' "$YEL" "$label" "$RST"
+    printf 'Epic/GOG launchers are community software that has to be built from the AUR.
+
+'
+    read -rp "Install it now with 'undrabyte-toolkit aur $pkg'? [y/N] " reply
+    if [[ ${reply,,} == y* ]]; then
+        sudo undrabyte-toolkit aur "$pkg" && exec "$bin" "${@:4}"
+    else
+        printf 'Later: %ssudo undrabyte-toolkit aur %s%s
+' "$DIM" "$pkg" "$RST"
+        exit 1
+    fi
+}
+
+cmd_epic() {
+    # Heroic covers Epic, GOG and Amazon in one GUI; it is what most people want.
+    launch_or_offer_aur heroic heroic-games-launcher-bin "Heroic (Epic / GOG / Amazon)" "$@"
+}
+
+cmd_legendary() {
+    # Legendary is the Epic CLI - scriptable, no GUI, good over SSH.
+    launch_or_offer_aur legendary legendary "Legendary (Epic CLI)" "$@"
+}
+
+cmd_run() {
+    [[ $# -gt 0 ]] || { echo "usage: undrabyte-game run <command> [args...]" >&2; exit 1; }
+    wrap "$@"
+}
+
+cmd_tips() {
+    cat <<EOF
+${BOLD}Steam launch options${RST}
+
+  Force Proton + MangoHud + gamemode on a single title:
+    ${DIM}gamemoderun mangohud %command%${RST}
+
+  Games that stutter on shader compilation:
+    ${DIM}RADV_PERFTEST=gpl gamemoderun %command%${RST}
+
+  Old titles that hate Wayland:
+    ${DIM}SDL_VIDEODRIVER=x11 %command%${RST}
+
+${BOLD}Epic, GOG and other stores${RST}
+
+  Epic has no Linux client. Use ${BOLD}Heroic${RST} (a GUI for Epic + GOG + Amazon)
+  or ${BOLD}Legendary${RST} (Epic on the command line). Neither is in the Arch repos,
+  so install on demand:
+    ${DIM}undrabyte-game epic${RST}          launch Heroic, or install it first
+    ${DIM}undrabyte-game legendary${RST}     the Epic CLI
+  Heroic runs Epic titles through Proton/Wine just like Steam does, so the
+  same VM graphics rules below apply.
+
+${BOLD}Running games inside a VM${RST}
+
+  A VM has no GPU unless you give it one. In order of effort:
+
+  1. ${BOLD}virtio-gpu with venus/virgl${RST} (easiest, good for 2D, indie and
+     emulated titles). QEMU:
+       ${DIM}-device virtio-vga-gl -display gtk,gl=on${RST}
+     Check it worked: ${DIM}undrabyte-game check${RST} should not say llvmpipe.
+
+  2. ${BOLD}VirtualBox 3D acceleration${RST}: Settings > Display > VMSVGA +
+     "Enable 3D Acceleration", 128 MB video memory, guest additions running.
+     OpenGL only, no Vulkan - so no Proton/DXVK.
+
+  3. ${BOLD}GPU passthrough (VFIO)${RST} - the only way to get real gaming
+     performance. Needs IOMMU, a second GPU or a host that can release the
+     primary one, and host-side vfio-pci binding. See docs/GAMING.md.
+
+  Emulators (RetroArch) and native Linux indie games are perfectly happy on
+  option 1. Anything using DirectX 11/12 through Proton needs 1 with venus,
+  or 3.
+EOF
+}
+
+case "${1-check}" in
+    check)         shift ||:; cmd_check ;;
+    steam)         shift; cmd_steam "$@" ;;
+    epic|heroic)   shift ||:; cmd_epic "$@" ;;
+    legendary)     shift ||:; cmd_legendary "$@" ;;
+    run)           shift; cmd_run "$@" ;;
+    tips)          cmd_tips ;;
+    -h|--help|help) cmd_tips ;;
+    *)             echo "usage: undrabyte-game {check|steam|epic|legendary|run|tips}" >&2; exit 1 ;;
+esac

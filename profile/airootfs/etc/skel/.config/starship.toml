@@ -1,0 +1,24 @@
+# Compact prompt: context first, decoration second.
+add_newline = false
+format = "$username$hostname$directory$git_branch$git_status$cmd_duration$character"
+
+[username]
+show_always = true
+style_user = "bold cyan"
+format = "[$user]($style)"
+
+[hostname]
+ssh_only = false
+style = "bold cyan"
+format = "[@$hostname]($style) "
+
+[directory]
+truncation_length = 4
+style = "bold blue"
+
+[character]
+success_symbol = "[>](bold green)"
+error_symbol = "[>](bold red)"
+
+[cmd_duration]
+min_time = 2000
