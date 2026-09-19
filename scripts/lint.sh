@@ -52,11 +52,17 @@ for list in packages/*.list; do
     if grep -q $'\r' "$list"; then
         fail "$list has CRLF line endings"
     fi
+    # Strip inline comments and surrounding space the same way the build
+    # parser (resolve_packages) does, so an inline "pkg  # why" is valid here
+    # too - the two must agree on what a manifest line means.
+    names="$(grep -vE '^[[:space:]]*(#|$)' "$list" \
+             | sed 's/[[:space:]]*#.*$//; s/[[:space:]]*$//; s/^[[:space:]]*//' \
+             | grep -v '^$')"
     # Package names: lowercase alnum plus - _ . + @
-    if bad="$(grep -vE '^[[:space:]]*(#|$)' "$list" | grep -vE '^[a-z0-9][a-z0-9@._+-]*$' || true)"; [[ -n $bad ]]; then
+    if bad="$(grep -vE '^[a-z0-9][a-z0-9@._+-]*$' <<<"$names" || true)"; [[ -n $bad ]]; then
         fail "$list has suspicious entries: $(tr '\n' ' ' <<<"$bad")"
     fi
-    dupes="$(grep -vE '^[[:space:]]*(#|$)' "$list" | sort | uniq -d)"
+    dupes="$(sort <<<"$names" | uniq -d)"
     if [[ -n $dupes ]]; then
         fail "$list repeats: $(tr '\n' ' ' <<<"$dupes")"
     fi

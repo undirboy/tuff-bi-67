@@ -129,6 +129,7 @@ MENU
 menu_help() {
     cat <<'MENU'
 run|Welcome tour|What this image is|undrabyte-welcome
+run|Using the desktop|No commands needed - a Windows cheat sheet|less /usr/local/share/undrabyte/docs/DESKTOP.md
 run|Launcher and dark mode|This menu, the theme, desktop defaults|less /usr/local/share/undrabyte/docs/LAUNCHER.md
 run|Optimisation|What gets tuned for a VM vs bare metal|less /usr/local/share/undrabyte/docs/OPTIMISATION.md
 run|Running in a VM|Per-hypervisor settings|less /usr/local/share/undrabyte/docs/RUNNING-VMS.md

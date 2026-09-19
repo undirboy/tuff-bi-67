@@ -5,13 +5,27 @@ xfce4-goodies
 lightdm
 lightdm-gtk-greeter
 lightdm-gtk-greeter-settings
-network-manager-applet
 
 # themes: the dark defaults undrabyte-theme switches between
 breeze-gtk
 breeze-icons
 gnome-themes-extra
 papirus-icon-theme
-xdg-user-dirs
-gvfs
-file-roller
+# A Windows-like desktop needs no terminal for everyday tasks. These make
+# the file manager (Thunar, from the xfce4 group) behave the way people
+# expect: right-click "Create Folder", auto-mounting USB sticks and phones,
+# thumbnails, and double-click to extract archives.
+xdg-user-dirs          # standard Documents/Downloads/Pictures folders
+thunar                 # the file manager (explicit, not just via the group)
+thunar-volman          # auto-mount removable drives on insert
+thunar-archive-plugin  # right-click extract/create archives
+tumbler                # thumbnails for images, PDFs, video
+gvfs                   # mount USB, phones (MTP), network shares
+gvfs-mtp               # Android phones over USB
+gvfs-smb               # Windows/SMB network shares
+udisks2                # the mounting backend
+file-roller            # archive manager (zip, 7z, tar...)
+xarchiver              # lightweight archive GUI Thunar calls
+xfce4-whiskermenu-plugin  # a searchable Start-menu-style app launcher
+xfce4-screenshooter    # PrintScreen screenshots
+network-manager-applet # click-to-connect WiFi/ethernet in the tray

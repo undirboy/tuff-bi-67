@@ -154,6 +154,7 @@ times and disk space.
 ## Documentation
 
 - [BUILDING.md](docs/BUILDING.md) — build the ISO, on Arch or anywhere else
+- [DESKTOP.md](docs/DESKTOP.md) — using the desktop with no commands (a Windows cheat sheet)
 - [LAUNCHER.md](docs/LAUNCHER.md) — the launcher, dark mode, desktop defaults
 - [OPTIMISATION.md](docs/OPTIMISATION.md) — what gets tuned for a VM vs bare metal, and why
 - [RUNNING-VMS.md](docs/RUNNING-VMS.md) — QEMU, VirtualBox, VMware, Hyper-V, Proxmox
