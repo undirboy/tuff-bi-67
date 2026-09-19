@@ -34,6 +34,5 @@ xfce4-notifyd          # desktop notifications
 xfce4-taskmanager      # a graphical Task Manager
 galculator             # a calculator
 librsvg                # renders the SVG wallpaper
-xfce4-artwork          # a set of wallpapers to choose from
 archlinux-wallpaper    # more wallpapers
 network-manager-applet # click-to-connect WiFi/ethernet in the tray
