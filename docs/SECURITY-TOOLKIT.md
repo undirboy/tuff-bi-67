@@ -76,7 +76,7 @@ sudo systemctl enable --now postgresql
 sudo msfdb init
 ```
 
-**Monitor mode** — needs a card whose driver supports it, and passed through
+**Monitor mode** (full walkthrough in [WIFI-SECURITY.md](WIFI-SECURITY.md)) — needs a card whose driver supports it, and passed through
 to the VM as a USB device (`-device usb-host,...` in QEMU, or USB passthrough
 in VirtualBox/VMware). A virtio NIC cannot do monitor mode; no configuration
 changes that.

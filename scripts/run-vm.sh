@@ -31,6 +31,7 @@ GL=auto
 SHARE=""
 SSH_PORT=2222
 NO_ISO=0
+USB_IDS=()
 EXTRA=()
 
 usage() {
@@ -46,11 +47,20 @@ ${C_BOLD}run-vm.sh${C_RST} [ISO] [options]
   --gl / --no-gl   force virgl 3D on or off (default: on when the host allows)
   --share DIR      export DIR to the guest over 9p (mount tag: hostshare)
   --ssh-port N     forward host port N to guest :22 (default: $SSH_PORT)
+  --usb VID:PID    pass a host USB device through to the guest (repeatable);
+                   this is how a monitor-mode WiFi adapter reaches the VM
+  --wifi           list USB WiFi-capable adapters and pass the one you pick
+                   through (needs lsusb; a shortcut for --usb)
   --no-iso         do not attach an ISO (boot the disk)
   --               everything after this is passed straight to qemu
 
 Inside the guest, mount a --share with:
   ${C_DIM}sudo mount -t 9p -o trans=virtio,version=9p2000.L hostshare /mnt${C_RST}
+
+A VM's virtio NIC cannot do monitor mode or packet injection. To capture a
+WPA handshake from your own access point, pass a real USB WiFi adapter through:
+  ${C_DIM}./scripts/run-vm.sh --disk vm/hexforge.qcow2 --wifi${C_RST}
+then, in the guest: ${C_DIM}hexforge-wifi${C_RST}
 EOF
 }
 
@@ -66,6 +76,8 @@ while [[ $# -gt 0 ]]; do
         --no-gl)    GL=off; shift ;;
         --share)    SHARE=${2:?}; shift 2 ;;
         --ssh-port) SSH_PORT=${2:?}; shift 2 ;;
+        --usb)      USB_IDS+=("${2:?}"); shift 2 ;;
+        --wifi)     USB_IDS+=("__pick_wifi__"); shift ;;
         --no-iso)   NO_ISO=1; shift ;;
         --)         shift; EXTRA=("$@"); break ;;
         -h|--help)  usage; exit 0 ;;
@@ -253,6 +265,51 @@ if [[ -n $SHARE ]]; then
     [[ -d $SHARE ]] || die "--share: not a directory: $SHARE"
     QEMU+=(-virtfs "local,path=$SHARE,mount_tag=hostshare,security_model=mapped-xattr,id=hostshare")
     log "sharing $SHARE as 9p tag 'hostshare'"
+fi
+
+# --- USB passthrough (a monitor-mode WiFi adapter reaching the guest) --------
+#
+# A virtio NIC is a paravirtual device; it has no radio, so it can never do
+# monitor mode or injection. The only way to run aircrack-ng/hcxdumptool
+# against your own AP from inside the VM is to hand the guest a real USB WiFi
+# adapter. QEMU claims the device from the host for the life of the VM.
+
+pick_wifi_adapter() {
+    command -v lsusb &>/dev/null || die "--wifi needs lsusb (host package 'usbutils')"
+    local -a lines=()
+    # WiFi adapters are USB class-independent, so match on the vendor/product
+    # text most known adapters advertise rather than a device class.
+    mapfile -t lines < <(lsusb | grep -iE 'wl?an|wifi|wireless|802\.11|rtl8|ralink|atheros|mediatek|realtek.*adapter' || true)
+    if (( ${#lines[@]} == 0 )); then
+        warn "no obvious USB WiFi adapter in lsusb. Full device list:"
+        lsusb >&2
+        die "plug the adapter in, or name it explicitly with --usb VID:PID"
+    fi
+    if (( ${#lines[@]} == 1 )); then
+        printf '%s\n' "${lines[0]}" | grep -oE '[0-9a-f]{4}:[0-9a-f]{4}' | head -1
+        return
+    fi
+    printf '%sMore than one candidate adapter:%s\n' "$C_BOLD" "$C_RST" >&2
+    local i
+    for i in "${!lines[@]}"; do printf '  %d) %s\n' "$((i+1))" "${lines[i]}" >&2; done
+    local choice
+    read -rp "Pass which one through? [1-${#lines[@]}] " choice
+    if ! [[ $choice =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#lines[@]} )); then
+        die "not a listed choice: $choice"
+    fi
+    printf '%s\n' "${lines[choice-1]}" | grep -oE '[0-9a-f]{4}:[0-9a-f]{4}' | head -1
+}
+
+if (( ${#USB_IDS[@]} )); then
+    warn "USB passthrough gives the GUEST exclusive control of the device; it disappears from the host until the VM stops."
+    for id in "${USB_IDS[@]}"; do
+        [[ $id == __pick_wifi__ ]] && id="$(pick_wifi_adapter)"
+        [[ $id =~ ^[0-9a-fA-F]{4}:[0-9a-fA-F]{4}$ ]] || die "--usb wants VID:PID (e.g. 0bda:8812), got: $id"
+        QEMU+=(-device "usb-host,vendorid=0x${id%%:*},productid=0x${id##*:}")
+        log "passing USB device $id through to the guest"
+    done
+    printf '%s    the adapter needs a Linux driver that supports monitor mode; see docs/WIFI-SECURITY.md%s\n' \
+        "$C_DIM" "$C_RST"
 fi
 
 (( ${#EXTRA[@]} )) && QEMU+=("${EXTRA[@]}")

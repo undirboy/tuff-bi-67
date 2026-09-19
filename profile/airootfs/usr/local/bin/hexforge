@@ -72,6 +72,7 @@ run|gobuster|Directory and DNS brute forcing|gobuster
 run|hashcat|GPU/CPU hash cracking|hashcat
 run|John the Ripper|Password cracking|john
 run|aircrack-ng|802.11 analysis and cracking|aircrack-ng
+run|WiFi handshake (your own AP)|Guided WPA capture and crack, for a network you own|hexforge-wifi
 run|radare2|Reverse engineering framework|r2
 gui|Ghidra|Decompiler and disassembler|ghidra
 run|searchsploit|Search the Exploit-DB archive|searchsploit
@@ -131,6 +132,7 @@ run|Optimisation|What gets tuned for a VM vs bare metal|less /usr/local/share/he
 run|Running in a VM|Per-hypervisor settings|less /usr/local/share/hexforge/docs/RUNNING-VMS.md
 run|Gaming|What runs in a VM, and GPU passthrough|less /usr/local/share/hexforge/docs/GAMING.md
 run|Security toolkit|What is installed, and how to build a lab|less /usr/local/share/hexforge/docs/SECURITY-TOOLKIT.md
+run|WiFi security|Cracking your own WPA2, wirelessly|less /usr/local/share/hexforge/docs/WIFI-SECURITY.md
 run|Small machines|Tuning for 4 GB and two cores|less /usr/local/share/hexforge/docs/LOW-SPEC.md
 run|Installing|Putting this on a disk|less /usr/local/share/hexforge/docs/INSTALL.md
 run|Lawful use|Licensing, and the rules around the offensive tooling|less /usr/local/share/hexforge/docs/LEGAL.md

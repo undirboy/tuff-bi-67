@@ -160,6 +160,7 @@ times and disk space.
 - [LOW-SPEC.md](docs/LOW-SPEC.md) — older laptops: 8 GB, dual core, Intel Macs
 - [GAMING.md](docs/GAMING.md) — what runs in a VM, and GPU passthrough when it doesn't
 - [SECURITY-TOOLKIT.md](docs/SECURITY-TOOLKIT.md) — what's included, BlackArch, building a lab
+- [WIFI-SECURITY.md](docs/WIFI-SECURITY.md) — cracking your own WPA2 wirelessly, from a VM or bare metal
 - [INSTALL.md](docs/INSTALL.md) — installing to a disk
 - [CUSTOMISING.md](docs/CUSTOMISING.md) — your own packages, branding, defaults
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the build actually works

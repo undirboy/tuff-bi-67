@@ -60,5 +60,6 @@ file_permissions=(
   ["/usr/local/bin/hexforge-install"]="0:0:755"
   ["/usr/local/bin/hexforge-vmcheck"]="0:0:755"
   ["/usr/local/bin/hexforge-game"]="0:0:755"
+  ["/usr/local/bin/hexforge-wifi"]="0:0:755"
   ["/usr/lib/hexforge/live-setup.sh"]="0:0:755"
 )

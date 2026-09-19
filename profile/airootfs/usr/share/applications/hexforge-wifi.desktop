@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=HexForge WiFi Exercise
+Comment=Capture and crack a WPA handshake from an access point you own
+Exec=sh -c 'hexforge-wifi; echo; read -p "Press Enter to close " _'
+Icon=network-wireless
+Terminal=true
+Categories=System;Network;
+Keywords=wifi;wpa;handshake;aircrack;wireless;
