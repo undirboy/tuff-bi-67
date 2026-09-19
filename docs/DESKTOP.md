@@ -36,6 +36,29 @@ Move to Trash, and Extract for zip files — the same menu you expect.
 | PrintScreen | PrintScreen — saves a screenshot |
 | Installing a program | KDE: **Discover** app store · any edition: one-click entries in the `undrabyte` launcher |
 
+## Taskbar, snapping and shortcuts (XFCE)
+
+The XFCE edition is set up to feel like Windows out of the box:
+
+- A **bottom taskbar** with a **Start** button (left), buttons for open
+  windows, and a system tray with volume and clock (right).
+- **Window snapping:** drag a window to the top to maximise, or to the left/
+  right edge to fill half the screen. `Super+←/→` snaps by keyboard.
+- **Desktop icons** for Home, Trash, the filesystem and USB drives.
+- **Clipboard history** running in the tray.
+
+Keyboard shortcuts you already know:
+
+| Key | Does |
+|---|---|
+| **Super (⊞)** | Open the Start menu |
+| **Super + E** | Open Files |
+| **Super + D** | Show the desktop |
+| **Super + L** | Lock the screen |
+| **Alt + F4** | Close the window |
+| **Alt + Tab** | Switch windows |
+| **PrintScreen** | Screenshot |
+
 ## Connecting to WiFi
 
 Click the **network icon** in the tray (bottom-right), pick your network, type

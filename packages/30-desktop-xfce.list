@@ -28,4 +28,9 @@ file-roller            # archive manager (zip, 7z, tar...)
 xarchiver              # lightweight archive GUI Thunar calls
 xfce4-whiskermenu-plugin  # a searchable Start-menu-style app launcher
 xfce4-screenshooter    # PrintScreen screenshots
+xfce4-clipman-plugin   # clipboard history, like Win+V
+xfce4-pulseaudio-plugin # volume control in the tray
+xfce4-notifyd          # desktop notifications
+xfce4-taskmanager      # a graphical Task Manager
+galculator             # a calculator
 network-manager-applet # click-to-connect WiFi/ethernet in the tray
