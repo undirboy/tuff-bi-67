@@ -27,5 +27,5 @@ okular
 partitionmanager
 
 # graphical app store, so installing software needs no terminal
-plasma-discover
+discover
 packagekit
