@@ -116,6 +116,26 @@ OVERLAY_ALLOWED=(
 
 log "checking the airootfs overlay against package file ownership"
 if pacman --config "$CONF" --dbpath "$DBPATH" -Fy &>/dev/null; then
+    # A collision only aborts pacstrap if the owning package is actually
+    # installed in the same image - including packages pulled in as
+    # dependencies, not just the ones named in the lists (bash, filesystem
+    # and glibc are never listed but are always installed). So resolve the
+    # full install closure with -Sp and check ownership against that. A path
+    # owned only by a package outside the closure - e.g. /etc/skel/.zshrc,
+    # owned by grml-zsh-config, which we dropped - is not a real conflict.
+    # aur/blackarch are layered after boot, never during pacstrap, so the
+    # [0-9]*.list set is the right input.
+    mapfile -t baked < <(grep -hvE '^[[:space:]]*(#|$)' "$ROOT"/packages/[0-9]*.list \
+                         | sed 's/[[:space:]]*#.*//; s/[[:space:]]*$//' | grep -v '^$' | sort -u)
+    baked_set="$(pacman --config "$CONF" --dbpath "$DBPATH" -Sp --print-format '%n' \
+                 -- "${baked[@]}" 2>/dev/null | sort -u)"
+    if [[ -z $baked_set ]]; then
+        # -Sp could not resolve the closure (should not happen: names are
+        # already verified above). Fall back to the named set so the check
+        # still runs, just less precisely.
+        baked_set="$(printf '%s\n' "${baked[@]}")"
+    fi
+
     collisions=()
     while IFS= read -r file; do
         rel="${file#"$ROOT"/profile/airootfs/}"
@@ -125,7 +145,11 @@ if pacman --config "$CONF" --dbpath "$DBPATH" -Fy &>/dev/null; then
         done
         (( allowed )) && continue
         owner="$(pacman --config "$CONF" --dbpath "$DBPATH" -Fq "$rel" 2>/dev/null | head -1)"
-        [[ -n $owner ]] && collisions+=("$rel  (owned by $owner)")
+        [[ -n $owner ]] || continue
+        # owner is "repo/name"; compare the bare name against the baked set.
+        if grep -qxF "${owner##*/}" <<<"$baked_set"; then
+            collisions+=("$rel  (owned by $owner, which is installed)")
+        fi
     done < <(find "$ROOT/profile/airootfs" -type f)
 
     if (( ${#collisions[@]} )); then
