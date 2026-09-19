@@ -59,6 +59,13 @@ Keyboard shortcuts you already know:
 | **Alt + Tab** | Switch windows |
 | **PrintScreen** | Screenshot |
 
+## Changing the wallpaper
+
+Right-click anywhere on the desktop → **Desktop Settings** → pick an image, or
+click **+** to add your own photo. Exactly like Windows' "Personalise".
+UndraByte ships its own default plus the `xfce4-artwork` and Arch wallpaper
+sets to choose from; any picture in your Pictures folder works too.
+
 ## Connecting to WiFi
 
 Click the **network icon** in the tray (bottom-right), pick your network, type

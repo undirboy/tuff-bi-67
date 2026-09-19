@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+# Apply the default UndraByte wallpaper on first login, on whatever monitor
+# the session presents (VM monitor names vary). Skips once the user has set
+# their own - so it never fights a wallpaper you chose yourself.
+
+set -uo pipefail
+readonly WALL=/usr/share/backgrounds/undrabyte/undrabyte-default.svg
+[[ -r $WALL ]] || exit 0
+command -v xfconf-query &>/dev/null || exit 0
+
+marker="${HOME}/.config/undrabyte/.wallpaper-applied"
+[[ -e $marker ]] && exit 0
+
+# xfdesktop creates one "…/last-image" property per connected monitor once it
+# starts. Read them; fall back to the common node names if none exist yet.
+mapfile -t props < <(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep '/last-image$')
+if (( ${#props[@]} == 0 )); then
+    props=(
+        /backdrop/screen0/monitor0/workspace0/last-image
+        /backdrop/screen0/monitorVirtual-1/workspace0/last-image
+        /backdrop/screen0/monitorVirtual1/workspace0/last-image
+    )
+fi
+
+for p in "${props[@]}"; do
+    xfconf-query -c xfce4-desktop -p "$p" -s "$WALL" 2>/dev/null \
+        || xfconf-query -c xfce4-desktop -p "$p" -n -t string -s "$WALL" 2>/dev/null || true
+    style="${p%/last-image}/image-style"
+    xfconf-query -c xfce4-desktop -p "$style" -s 5 2>/dev/null \
+        || xfconf-query -c xfce4-desktop -p "$style" -n -t int -s 5 2>/dev/null || true
+done
+
+mkdir -p "$(dirname "$marker")"
+: > "$marker"

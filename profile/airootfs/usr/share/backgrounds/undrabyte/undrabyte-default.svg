@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="42%" r="75%">
+      <stop offset="0%" stop-color="#12233b"/>
+      <stop offset="55%" stop-color="#0d1626"/>
+      <stop offset="100%" stop-color="#080d16"/>
+    </radialGradient>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1793d1"/>
+      <stop offset="100%" stop-color="#33ccff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#g)"/>
+  <g opacity="0.06" stroke="#33ccff" stroke-width="1.5">
+    <path d="M0 720 L1920 540"/>
+    <path d="M0 800 L1920 620"/>
+    <path d="M0 880 L1920 700"/>
+  </g>
+  <g transform="translate(960 500)" text-anchor="middle" font-family="DejaVu Sans, sans-serif">
+    <text y="0" font-size="130" font-weight="700" fill="#eef4fb">Undra<tspan fill="url(#a)">Byte</tspan></text>
+    <text y="70" font-size="34" letter-spacing="6" fill="#5b6b7f">HACK · CODE · PLAY</text>
+  </g>
+</svg>
