@@ -77,7 +77,11 @@ for list in "$ROOT"/packages/*.list; do
     optional=0
     [[ $base == aur-optional.list || $base == 90-blackarch.list ]] && optional=1
 
-    mapfile -t names < <(grep -vE '^[[:space:]]*(#|$)' "$list")
+    # Strip inline "pkg  # why" comments and surrounding space, exactly as the
+    # build parser (resolve_packages) does, so the two agree on the name.
+    mapfile -t names < <(grep -vE '^[[:space:]]*(#|$)' "$list" \
+                         | sed 's/[[:space:]]*#.*$//; s/[[:space:]]*$//; s/^[[:space:]]*//' \
+                         | grep -v '^$')
     (( ${#names[@]} )) || { ok "$base (empty)"; continue; }
     mapfile -t missing < <(missing_packages "$INDEX" "$CONF" "$DBPATH" "${names[@]}")
 

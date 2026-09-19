@@ -131,7 +131,8 @@ rm -f /tmp/undrabyte-lint-set.$$
 
 # The AUR list is installed later onto a system that already has the baked
 # set, so a conflict there bites at `undrabyte-toolkit aur` time instead.
-all_baked="$(cat packages/[0-9]*.list | grep -vE '^[[:space:]]*(#|$)' | sort -u)"
+all_baked="$(grep -hvE '^[[:space:]]*(#|$)' packages/[0-9]*.list \
+             | sed 's/[[:space:]]*#.*$//; s/[[:space:]]*$//; s/^[[:space:]]*//' | grep -v '^$' | sort -u)"
 while read -r aur_pkg; do
     for pair in "${CONFLICTS[@]}"; do
         a=${pair%%:*}; b=${pair#*:}
@@ -142,7 +143,8 @@ while read -r aur_pkg; do
             fail "aur-optional.list offers $a, which conflicts with $b in the image"
         fi
     done
-done < <(grep -vE '^[[:space:]]*(#|$)' packages/aur-optional.list)
+done < <(grep -vE '^[[:space:]]*(#|$)' packages/aur-optional.list \
+         | sed 's/[[:space:]]*#.*$//; s/[[:space:]]*$//; s/^[[:space:]]*//' | grep -v '^$')
 (( conflict_failures )) || pass "no known conflicting pairs in any edition"
 
 log "archiso profile"
