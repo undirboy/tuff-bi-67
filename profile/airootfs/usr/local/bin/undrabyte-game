@@ -105,6 +105,12 @@ cmd_legendary() {
     launch_or_offer_aur legendary legendary "Legendary (Epic CLI)" "$@"
 }
 
+cmd_protonge() {
+    # Proton-GE is the community Proton build that fixes many titles Valve's
+    # does not. protonup-qt (GUI) installs and manages it.
+    launch_or_offer_aur protonup-qt protonup-qt "ProtonUp-Qt (Proton-GE manager)" "$@"
+}
+
 cmd_run() {
     [[ $# -gt 0 ]] || { echo "usage: undrabyte-game run <command> [args...]" >&2; exit 1; }
     wrap "$@"
@@ -161,8 +167,9 @@ case "${1-check}" in
     steam)         shift; cmd_steam "$@" ;;
     epic|heroic)   shift ||:; cmd_epic "$@" ;;
     legendary)     shift ||:; cmd_legendary "$@" ;;
+    proton-ge|protonge) shift ||:; cmd_protonge "$@" ;;
     run)           shift; cmd_run "$@" ;;
     tips)          cmd_tips ;;
     -h|--help|help) cmd_tips ;;
-    *)             echo "usage: undrabyte-game {check|steam|epic|legendary|run|tips}" >&2; exit 1 ;;
+    *)             echo "usage: undrabyte-game {check|steam|epic|legendary|proton-ge|run|tips}" >&2; exit 1 ;;
 esac

@@ -49,6 +49,11 @@ sdl2-compat
 # emulation & a few FOSS titles to prove the stack works
 retroarch
 retroarch-assets-xmb
+dolphin-emu           # GameCube / Wii
+ppsspp                # PSP
+mgba-qt               # Game Boy Advance
+dosbox                # DOS games
+scummvm               # classic point-and-click adventures
 supertuxkart
 0ad
 wesnoth

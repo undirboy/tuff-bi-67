@@ -16,10 +16,20 @@ python-pwntools
 pwndbg
 gef
 volatility3
+wpscan
+nikto
+wfuzz
+dnsrecon
+responder
+enum4linux-ng
+crackmapexec
 rizin-cutter
 game-devices-udev
 broadcom-wl-dkms
 protonup-qt
+bottles
+sunshine
+moonlight-qt
 goverlay
 # game stores with no native Linux client (installed by undrabyte-game)
 heroic-games-launcher-bin

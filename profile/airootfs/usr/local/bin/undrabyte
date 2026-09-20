@@ -76,6 +76,7 @@ run|WiFi handshake (your own AP)|Guided WPA capture and crack, for a network you
 run|radare2|Reverse engineering framework|r2
 gui|Ghidra|Decompiler and disassembler|ghidra
 run|searchsploit|Search the Exploit-DB archive|searchsploit
+run|Practice lab (Docker targets)|DVWA, Juice Shop and friends, on localhost|undrabyte-lab list
 run|Add more tools|BlackArch groups and AUR builds|undrabyte-toolkit
 MENU
 }

@@ -116,11 +116,23 @@ Useful extras once it works:
 Passthrough is a host-side configuration exercise; UndraByte is ready for it
 the moment the card appears in the guest.
 
+## Proton-GE
+
+Valve's Proton is bundled with Steam; the community **Proton-GE** build fixes
+many titles Valve's doesn't. Install and manage it with:
+
+```bash
+undrabyte-game proton-ge     # installs ProtonUp-Qt, then pick a Proton-GE version
+```
+
 ## Emulation
 
 RetroArch is installed with the XMB assets. Cores are downloaded from within
 RetroArch (*Online Updater → Core Downloader*) rather than shipped, because
 core licensing varies and the set changes constantly.
+
+The gaming edition also ships standalone emulators: Dolphin (GameCube/Wii),
+PPSSPP (PSP), mGBA (Game Boy Advance), DOSBox and ScummVM.
 
 Everything up to PS1/N64-era emulates comfortably on virtio-gpu 3D.
 GameCube/PS2 and later want passthrough or bare metal.

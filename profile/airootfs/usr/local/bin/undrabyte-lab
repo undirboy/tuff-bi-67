@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+#
+# Spin up deliberately vulnerable practice targets in Docker, so you have
+# something you are ALLOWED to attack while learning. Everything runs on
+# localhost, bound to 127.0.0.1 only, on an isolated bridge.
+#
+#   undrabyte-lab list             what is available
+#   undrabyte-lab start <name>     start a target (dvwa, juiceshop, ...)
+#   undrabyte-lab start all        start the usual set
+#   undrabyte-lab status           what is running
+#   undrabyte-lab stop [name|all]  stop targets
+#
+# These are for practising on your OWN lab. See docs/SECURITY-TOOLKIT.md.
+
+set -uo pipefail
+
+BOLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
+GRN=$'\033[32m'; RED=$'\033[31m'; CYN=$'\033[36m'
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+
+need_docker() {
+    command -v docker &>/dev/null || die "docker is not installed (build the dev/security/full edition)"
+    docker info &>/dev/null 2>&1 || die "the Docker service is not running - start it with: sudo systemctl start docker"
+}
+
+readonly NET=undrabyte-lab
+# name|host-port|container-port|image|blurb
+readonly -a TARGETS=(
+    "dvwa|8080|80|vulnerables/web-dvwa|Damn Vulnerable Web App"
+    "juiceshop|3000|3000|bkimminich/juice-shop|OWASP Juice Shop"
+    "mutillidae|8081|80|citizenstig/nowasp|OWASP Mutillidae II"
+    "webgoat|8082|8080|webgoat/webgoat|OWASP WebGoat"
+    "bwapp|8083|80|raesene/bwapp|buggy web application"
+)
+
+ensure_net() {
+    docker network inspect "$NET" &>/dev/null || \
+        docker network create --driver bridge "$NET" >/dev/null
+}
+
+find_target() {
+    local name=$1 row
+    for row in "${TARGETS[@]}"; do
+        [[ ${row%%|*} == "$name" ]] && { printf '%s\n' "$row"; return 0; }
+    done
+    return 1
+}
+
+cmd_list() {
+    printf '%sPractice targets%s  (start with: undrabyte-lab start <name>)\n\n' "$BOLD" "$RST"
+    local row name port _cp _img blurb
+    for row in "${TARGETS[@]}"; do
+        IFS='|' read -r name port _cp _img blurb <<<"$row"
+        printf '  %s%-11s%s http://127.0.0.1:%-5s  %s%s%s\n' "$CYN" "$name" "$RST" "$port" "$DIM" "$blurb" "$RST"
+    done
+    printf '\n%sAll of these are intentionally insecure. Keep them on this machine.%s\n' "$DIM" "$RST"
+}
+
+start_one() {
+    local row name hp cp img blurb
+    row="$(find_target "$1")" || die "unknown target: $1 (see: undrabyte-lab list)"
+    IFS='|' read -r name hp cp img blurb <<<"$row"
+    ensure_net
+    if docker ps --format '{{.Names}}' | grep -qx "lab-$name"; then
+        info "$name already running: http://127.0.0.1:$hp"
+        return
+    fi
+    info "starting $name ($blurb)"
+    if docker run -d --rm --name "lab-$name" --network "$NET" \
+        -p "127.0.0.1:$hp:$cp" "$img" >/dev/null; then
+        printf '  %sready:%s http://127.0.0.1:%s\n' "$GRN" "$RST" "$hp"
+    else
+        die "failed to start $name (first run downloads the image)"
+    fi
+}
+
+cmd_start() {
+    need_docker
+    [[ $# -ge 1 ]] || die "usage: undrabyte-lab start <name|all>"
+    if [[ $1 == all ]]; then
+        local row; for row in "${TARGETS[@]}"; do start_one "${row%%|*}"; done
+    else
+        start_one "$1"
+    fi
+}
+
+cmd_status() {
+    need_docker
+    info "running lab targets"
+    docker ps --filter "name=lab-" --format 'table {{.Names}}\t{{.Ports}}\t{{.Status}}' || true
+}
+
+cmd_stop() {
+    need_docker
+    local which=${1:-all}
+    if [[ $which == all ]]; then
+        info "stopping all lab targets"
+        docker ps --filter "name=lab-" -q | xargs -r docker stop >/dev/null
+    else
+        if docker stop "lab-$which" >/dev/null; then info "stopped $which"; else die "not running: $which"; fi
+    fi
+}
+
+case ${1-list} in
+    list)   cmd_list ;;
+    start)  shift; cmd_start "$@" ;;
+    status) cmd_status ;;
+    stop)   shift ||:; cmd_stop "$@" ;;
+    -h|--help) sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//' ;;
+    *)      die "unknown command: $1 (try: undrabyte-lab list)" ;;
+esac

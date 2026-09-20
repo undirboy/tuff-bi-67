@@ -33,6 +33,12 @@ xfce4-pulseaudio-plugin # volume control in the tray
 xfce4-notifyd          # desktop notifications
 xfce4-taskmanager      # a graphical Task Manager
 galculator             # a calculator
+xfce4-screensaver      # lock screen and screensaver
+xfce4-power-manager    # battery/brightness, lid actions
+sound-theme-freedesktop # UI click/alert sounds
+plymouth               # graphical boot splash (installed systems)
+ristretto              # image viewer
+mousepad               # simple text editor (Notepad-like)
 librsvg                # renders the SVG wallpaper
 archlinux-wallpaper    # more wallpapers
 network-manager-applet # click-to-connect WiFi/ethernet in the tray
