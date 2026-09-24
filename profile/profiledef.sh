@@ -57,6 +57,7 @@ file_permissions=(
   ["/usr/local/bin/undrabyte-theme"]="0:0:755"
   ["/usr/local/bin/undrabyte-optimize"]="0:0:755"
   ["/usr/local/bin/undrabyte-toolkit"]="0:0:755"
+  ["/usr/local/bin/undrabyte-software"]="0:0:755"
   ["/usr/local/bin/undrabyte-install"]="0:0:755"
   ["/usr/local/bin/undrabyte-vmcheck"]="0:0:755"
   ["/usr/local/bin/undrabyte-game"]="0:0:755"

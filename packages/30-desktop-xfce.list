@@ -26,6 +26,7 @@ papirus-icon-theme
 # the file manager (Thunar, from the xfce4 group) behave the way people
 # expect: right-click "Create Folder", auto-mounting USB sticks and phones,
 # thumbnails, and double-click to extract archives.
+yad                    # GTK dialogs: powers the graphical Software installer
 xdg-user-dirs          # standard Documents/Downloads/Pictures folders
 thunar                 # the file manager (explicit, not just via the group)
 thunar-volman          # auto-mount removable drives on insert

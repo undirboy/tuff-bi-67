@@ -4,7 +4,7 @@
 # it non-reproducible and slow.
 
 burpsuite
-feroxbuster
+zaproxy
 ffuf
 nuclei
 subfinder

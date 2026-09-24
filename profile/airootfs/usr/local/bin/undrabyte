@@ -68,6 +68,7 @@ run|mitmproxy|Intercept and rewrite HTTP/HTTPS|mitmproxy
 run|Metasploit|Exploitation framework console|msfconsole
 run|sqlmap|Automated SQL injection|sqlmap
 run|ffuf|Fast web fuzzer|ffuf
+run|feroxbuster|Recursive content discovery|feroxbuster
 run|gobuster|Directory and DNS brute forcing|gobuster
 run|hashcat|GPU/CPU hash cracking|hashcat
 run|John the Ripper|Password cracking|john
@@ -110,6 +111,8 @@ MENU
 
 menu_system() {
     cat <<'MENU'
+gui|Software (install apps)|Point-and-click installer: browsers, media, office, graphics|undrabyte-software
+note|---|---|---
 run|Optimisation status|What is tuned, and what is not|undrabyte-optimize status
 run|Tune for this platform|Detects VM or bare metal and applies the right profile|sudo undrabyte-optimize apply
 run|Tune aggressively|Also trades desktop effects and indexing for speed|sudo undrabyte-optimize apply --aggressive
