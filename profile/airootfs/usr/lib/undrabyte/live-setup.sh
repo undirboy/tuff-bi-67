@@ -93,6 +93,39 @@ configure_autologin() {
     fi
 }
 
+start_display_manager() {
+    # archiso boots to the text console (multi-user.target) by design - it is
+    # an installer. A live *desktop* has to switch to graphical.target and
+    # bring the display manager up itself; nothing else does. Without this the
+    # machine autologins to a root shell on tty1 and the GUI never appears.
+    if grep -qw 'undrabyte.nodm=1' /proc/cmdline; then
+        log "undrabyte.nodm=1 set, staying on the text console"
+        return 0
+    fi
+
+    local dm=
+    if [[ -e /usr/lib/systemd/system/sddm.service ]]; then
+        dm=sddm
+    elif [[ -e /usr/lib/systemd/system/lightdm.service ]]; then
+        dm=lightdm
+    fi
+    if [[ -z $dm ]]; then
+        log "no display manager to start (console-only image)"
+        return 0
+    fi
+
+    systemctl set-default graphical.target &>/dev/null || true
+    systemctl enable "${dm}.service" &>/dev/null || true
+    # --no-block: this service is ordered Before=display-manager.service, so
+    # queue the DM job and return instead of waiting on it (which would be a
+    # dependency cycle).
+    if systemctl start --no-block "${dm}.service"; then
+        log "starting the ${dm} display manager"
+    else
+        warn "could not start ${dm}; the desktop will not appear (text console only)"
+    fi
+}
+
 start_guest_agent() {
     local virt
     virt="$(systemd-detect-virt 2>/dev/null || echo none)"
@@ -157,6 +190,7 @@ main() {
     configure_autologin
     start_guest_agent
     apply_defaults
+    start_display_manager
     log "live session ready"
 }
 

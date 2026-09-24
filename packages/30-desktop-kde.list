@@ -11,6 +11,15 @@ kinfocenter
 kwalletmanager
 sddm
 sddm-kcm
+
+# The X server for the Plasma X11 session (the one live-setup autologins into)
+# and for SDDM's default greeter. The built-in modesetting driver covers
+# virtio-gpu/QXL/VGA in a VM and Intel/AMD/nouveau on bare metal;
+# xf86-input-libinput gives X a working mouse and keyboard.
+xorg-server
+xorg-xinit
+xorg-xauth
+xf86-input-libinput
 breeze-gtk
 breeze-icons
 gnome-themes-extra

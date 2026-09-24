@@ -6,6 +6,17 @@ lightdm
 lightdm-gtk-greeter
 lightdm-gtk-greeter-settings
 
+# The X server itself. LightDM and XFCE are X clients - without a display
+# server there is nothing to draw to, so the screen stays blank. The
+# modesetting driver built into xorg-server drives virtio-gpu, QXL and plain
+# VGA in a VM (and Intel/AMD/nouveau on bare metal), so no per-GPU video
+# driver is needed. xf86-input-libinput is what gives X a working mouse and
+# keyboard; it is only an optional dependency of xorg-server, so name it.
+xorg-server
+xorg-xinit
+xorg-xauth
+xf86-input-libinput
+
 # themes: the dark defaults undrabyte-theme switches between
 breeze-gtk
 breeze-icons
