@@ -52,7 +52,7 @@ retroarch-assets-xmb
 dolphin-emu           # GameCube / Wii
 ppsspp                # PSP
 mgba-qt               # Game Boy Advance
-melonds               # Nintendo DS
+# melonds (Nintendo DS) is AUR-only: undrabyte-toolkit aur melonds
 mupen64plus           # Nintendo 64
 dosbox                # DOS games
 scummvm               # classic point-and-click adventures

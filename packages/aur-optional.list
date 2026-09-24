@@ -6,6 +6,8 @@
 burpsuite
 zaproxy
 ffuf
+feroxbuster
+melonds
 nuclei
 subfinder
 amass

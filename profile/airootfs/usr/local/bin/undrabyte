@@ -68,7 +68,6 @@ run|mitmproxy|Intercept and rewrite HTTP/HTTPS|mitmproxy
 run|Metasploit|Exploitation framework console|msfconsole
 run|sqlmap|Automated SQL injection|sqlmap
 run|ffuf|Fast web fuzzer|ffuf
-run|feroxbuster|Recursive content discovery|feroxbuster
 run|gobuster|Directory and DNS brute forcing|gobuster
 run|hashcat|GPU/CPU hash cracking|hashcat
 run|John the Ripper|Password cracking|john
