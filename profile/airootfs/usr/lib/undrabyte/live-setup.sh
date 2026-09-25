@@ -165,18 +165,21 @@ apply_defaults() {
     # a white flash and then has to go hunting through settings dialogues.
     local mode=dark
     [[ -r /etc/undrabyte/theme ]] && mode="$(< /etc/undrabyte/theme)"
+    # These are best-effort. This service is ordered Before=display-manager,
+    # so the desktop cannot start until it returns - every step here is wrapped
+    # in `timeout` so a slow or hung helper can never stall the boot.
     if [[ -x /usr/local/bin/undrabyte-theme ]]; then
-        if runuser -u "$USERNAME" -- /usr/local/bin/undrabyte-theme "$mode" &>/dev/null; then
+        if timeout 30 runuser -u "$USERNAME" -- /usr/local/bin/undrabyte-theme "$mode" &>/dev/null; then
             log "applied the $mode theme"
         else
-            warn "could not apply the $mode theme"
+            warn "could not apply the $mode theme (skipped or timed out)"
         fi
     fi
 
     # Tune for whatever we turned out to be running on. Cheap, and it is the
     # difference between a snappy VM desktop and a sluggish one.
     if [[ -x /usr/local/bin/undrabyte-optimize ]]; then
-        if /usr/local/bin/undrabyte-optimize apply &>/dev/null; then
+        if timeout 60 /usr/local/bin/undrabyte-optimize apply &>/dev/null; then
             log "applied the $(systemd-detect-virt &>/dev/null && echo vm || echo bare-metal) tuning profile"
         else
             warn "optimisation profile could not be applied"

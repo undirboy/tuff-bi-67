@@ -79,8 +79,12 @@ apply_gtk() {
     done
     step "GTK 3 and 4: $theme / $icons"
 
-    # libadwaita apps ignore the theme name and read this instead.
-    if have gsettings; then
+    # libadwaita apps ignore the theme name and read this instead. Only touch
+    # gsettings when a D-Bus session bus is actually present: with no bus (e.g.
+    # when the first-boot setup runs this before any desktop session exists),
+    # `gsettings set` can block trying to autolaunch one, which would stall boot.
+    # The shipped /etc/skel configs already set the theme for the first session.
+    if have gsettings && [[ -n ${DBUS_SESSION_BUS_ADDRESS:-} ]]; then
         local scheme
         if [[ $mode == dark ]]; then scheme="prefer-dark"; else scheme="prefer-light"; fi
         gsettings set org.gnome.desktop.interface color-scheme "$scheme" 2>/dev/null || true
