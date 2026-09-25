@@ -45,9 +45,11 @@ sshuttle
 
 # web and exploitation
 sqlmap
-metasploit
-exploitdb
 impacket
+# metasploit and exploitdb are the two heaviest tools (~300 MB together) and
+# are left out of `lite` to keep the ISO under GitHub's 2 GiB download limit.
+# Install them on demand:  sudo pacman -S metasploit exploitdb
+# The full/security/dev editions still bake them in.
 
 # passwords
 john
