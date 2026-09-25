@@ -194,6 +194,10 @@ log "systemd enablement symlinks"
 while IFS= read -r link; do
     target="$(readlink "$link")"
     case $target in
+        # A symlink to /dev/null is a systemd unit mask - a legitimate way to
+        # disable a unit shipped by a package (e.g. systemd-firstboot on live
+        # media, which would otherwise stop boot with an interactive wizard).
+        /dev/null) pass "$(basename "$link") -> /dev/null (masked)" ;;
         /usr/lib/systemd/system/*|/etc/systemd/system/*) pass "$(basename "$link") -> $target" ;;
         *) fail "$link points outside the systemd unit directories: $target" ;;
     esac

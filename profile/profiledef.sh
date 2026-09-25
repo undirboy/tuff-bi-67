@@ -45,9 +45,15 @@ airootfs_image_type="squashfs"
 # possible - it has to stay under GitHub's 2 GiB per-release-asset limit.
 airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '22' '-b' '1M')
 
-# mkarchiso declares this associative array before sourcing the profile;
-# declaring it here too keeps the file safe to source on its own (tests, lint).
-declare -A file_permissions
+# mkarchiso declares this associative array before sourcing the profile, then
+# sources profiledef.sh *inside a function*. A plain `declare -A` here would
+# create a function-local array that shadows mkarchiso's global one, so every
+# entry below would be silently discarded - no file gets its permissions,
+# leaving all the /usr/local/bin/undrabyte* tools and live-setup.sh
+# non-executable (the live session then fails with status=203/EXEC and never
+# reaches the desktop). `declare -gA` forces global scope so the entries
+# actually reach mkarchiso. It is also safe to source standalone (tests/lint).
+declare -gA file_permissions
 file_permissions=(
   ["/etc/shadow"]="0:0:400"
   ["/etc/gshadow"]="0:0:400"
