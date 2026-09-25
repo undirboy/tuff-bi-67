@@ -39,15 +39,36 @@ jobs:
         run: |
           iso="$(find iso -name '*.iso' | head -1)"
           [ -n "$iso" ] || { echo "no ISO found in the artifact"; exit 1; }
+
+          # GitHub rejects a release asset of 2 GiB or more. Check this BEFORE
+          # touching the existing release, so an oversized image fails the job
+          # while leaving the current download link intact.
+          bytes="$(stat -c%s "$iso")"
+          limit=2147483648
+          if [ "$bytes" -ge "$limit" ]; then
+            echo "::error::ISO is ${bytes} bytes, at or over GitHub's 2 GiB" \
+                 "release-asset limit (${limit}). Shrink the image before publishing;" \
+                 "the existing release was left untouched."
+            exit 1
+          fi
+
           size="$(du -h "$iso" | cut -f1)"
           notes="UndraByte ${{ inputs.artifact }} live ISO ($size). Direct, resumable CDN download. Boot in UTM or QEMU."
-          # Delete an existing release with this tag so re-runs replace the asset.
-          gh release delete '${{ inputs.tag }}' -R '${{ github.repository }}' --yes --cleanup-tag 2>/dev/null || true
-          gh release create '${{ inputs.tag }}' "$iso" \
-             -R '${{ github.repository }}' \
-             --title 'UndraByte live ISO' \
-             --notes "$notes" \
-             --target '${{ github.sha }}'
+
+          # Create the release only if the tag does not exist yet; never delete
+          # it first. Then replace the asset in place with --clobber, so a
+          # failed upload can never leave the tag with no downloadable ISO.
+          if ! gh release view '${{ inputs.tag }}' -R '${{ github.repository }}' >/dev/null 2>&1; then
+            gh release create '${{ inputs.tag }}' \
+               -R '${{ github.repository }}' \
+               --title 'UndraByte live ISO' \
+               --notes "$notes" \
+               --target '${{ github.sha }}'
+          else
+            gh release edit '${{ inputs.tag }}' -R '${{ github.repository }}' --notes "$notes"
+          fi
+          gh release upload '${{ inputs.tag }}' "$iso" -R '${{ github.repository }}' --clobber
+
           echo "Release asset URL:"
           gh release view '${{ inputs.tag }}' -R '${{ github.repository }}' --json assets \
              --jq '.assets[].url'

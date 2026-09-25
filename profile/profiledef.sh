@@ -41,7 +41,9 @@ bootmodes=(
 )
 
 airootfs_image_type="squashfs"
-airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '19' '-b' '1M')
+# zstd at its maximum level keeps the squashfs (and so the ISO) as small as
+# possible - it has to stay under GitHub's 2 GiB per-release-asset limit.
+airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '22' '-b' '1M')
 
 # mkarchiso declares this associative array before sourcing the profile;
 # declaring it here too keeps the file safe to source on its own (tests, lint).

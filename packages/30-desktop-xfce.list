@@ -1,7 +1,6 @@
 # XFCE edition: lighter, happier on 2 vCPU / 2 GB VMs.
 
 xfce4
-xfce4-goodies
 lightdm
 lightdm-gtk-greeter
 lightdm-gtk-greeter-settings
@@ -21,7 +20,6 @@ xf86-input-libinput
 breeze-gtk
 breeze-icons
 gnome-themes-extra
-papirus-icon-theme
 # A Windows-like desktop needs no terminal for everyday tasks. These make
 # the file manager (Thunar, from the xfce4 group) behave the way people
 # expect: right-click "Create Folder", auto-mounting USB sticks and phones,
