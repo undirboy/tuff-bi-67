@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=UndraByte - start here
+Comment=Every tool on this image, in one place
+Icon=applications-system
+Exec=undrabyte
+Terminal=true
+Categories=System;

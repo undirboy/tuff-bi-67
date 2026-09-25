@@ -1,0 +1,44 @@
+# Not in the official repos. Installed on a *running* system with
+# `undrabyte-toolkit aur`, which bootstraps `paru` first. These are never
+# baked into the ISO: building AUR packages inside the ISO build would make
+# it non-reproducible and slow.
+
+burpsuite
+zaproxy
+ffuf
+feroxbuster
+melonds
+nuclei
+subfinder
+amass
+netexec
+bloodhound
+seclists
+python-pwntools
+pwndbg
+gef
+volatility3
+wpscan
+nikto
+wfuzz
+dnsrecon
+responder
+enum4linux-ng
+crackmapexec
+rizin-cutter
+game-devices-udev
+broadcom-wl-dkms
+protonup-qt
+bottles                 # a friendly GUI for running Windows apps/games in Wine
+ttf-ms-fonts           # the real Microsoft fonts (Arial, Times New Roman, ...)
+sunshine
+moonlight-qt
+goverlay
+# game stores with no native Linux client (installed by undrabyte-game)
+heroic-games-launcher-bin
+legendary
+
+# Not listed: visual-studio-code-bin. The dev set already installs `code`
+# (the OSS build) and the two conflict, so `undrabyte-toolkit aur` would stop
+# with a replacement prompt. If you want Microsoft's branded build, remove
+# `code` from packages/40-dev.list first.

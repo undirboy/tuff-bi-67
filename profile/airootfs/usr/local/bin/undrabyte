@@ -1,0 +1,401 @@
+#!/usr/bin/env bash
+#
+# The UndraByte launcher: one place to reach everything on the image.
+#
+# It is a terminal UI on purpose. A GTK panel would look nicer on the desktop
+# and be useless over SSH, on a TTY, or on a headless build - and "both
+# versions do everything" is the point of this image. This runs identically
+# on bare metal, in a VM, and through an ssh session.
+#
+#   undrabyte              open the launcher
+#   undrabyte security     jump straight to a section
+#   undrabyte --list       print the whole menu tree (no TUI, scriptable)
+#
+# Keys: up/down or j/k to move, Enter to run, 1-9 to jump, Esc/Backspace to
+#       go back, t to toggle the theme, q to quit.
+
+set -uo pipefail
+
+readonly VERSION_FILE=/usr/lib/os-release
+readonly THEME_FILE_USER="${HOME:-/root}/.config/undrabyte/theme"
+readonly THEME_FILE_SYS=/etc/undrabyte/theme
+
+# ------------------------------------------------------------- appearance --
+
+if [[ -t 1 && -z ${NO_COLOR-} ]]; then
+    C_RST=$'\033[0m';  C_BOLD=$'\033[1m'; C_DIM=$'\033[2m'
+    C_ACC=$'\033[38;5;38m'                      # UndraByte blue
+    C_SEL=$'\033[48;5;24m\033[38;5;255m\033[1m' # selected row
+    C_OK=$'\033[38;5;71m'; C_WARN=$'\033[38;5;214m'; C_ERR=$'\033[38;5;167m'
+else
+    C_RST=''; C_BOLD=''; C_DIM=''; C_ACC=''; C_SEL=''; C_OK=''; C_WARN=''; C_ERR=''
+fi
+
+have() { command -v "$1" &>/dev/null; }
+
+tput_or() { tput "$@" 2>/dev/null || true; }
+hide_cursor() { tput_or civis; }
+show_cursor() { tput_or cnorm; }
+clear_screen() { printf '\033[H\033[2J'; }
+
+term_cols() { local c; c=$(tput cols 2>/dev/null || echo 80); (( c < 60 )) && c=60; echo "$c"; }
+term_rows() { tput lines 2>/dev/null || echo 24; }
+
+# ----------------------------------------------------------------- menus --
+#
+# Every entry is "kind|label|description|command".
+#   menu  - open a submenu (command is the function name)
+#   run   - run in this terminal, then wait for a key
+#   gui   - launch detached; the launcher stays up
+#   note  - not selectable, just a line of text
+
+menu_main() {
+    cat <<'MENU'
+menu|Security toolkit|Recon, traffic, wireless, cracking, reversing|menu_security
+menu|Development|Editors, languages, containers, version control|menu_dev
+menu|Games and 3D|Steam, Proton, emulators, graphics diagnostics|menu_play
+menu|System|Optimisation, theme, VM health, packages, install|menu_system
+menu|Help and documentation|Everything shipped with this image|menu_help
+MENU
+}
+
+menu_security() {
+    cat <<'MENU'
+run|nmap|Port and service discovery|nmap
+run|Wireshark (CLI)|Capture and dissect traffic in the terminal|tshark
+gui|Wireshark|Packet capture with the GUI|wireshark
+run|mitmproxy|Intercept and rewrite HTTP/HTTPS|mitmproxy
+run|Metasploit|Exploitation framework console|msfconsole
+run|sqlmap|Automated SQL injection|sqlmap
+run|ffuf|Fast web fuzzer|ffuf
+run|gobuster|Directory and DNS brute forcing|gobuster
+run|hashcat|GPU/CPU hash cracking|hashcat
+run|John the Ripper|Password cracking|john
+run|aircrack-ng|802.11 analysis and cracking|aircrack-ng
+run|WiFi handshake (your own AP)|Guided WPA capture and crack, for a network you own|undrabyte-wifi
+run|radare2|Reverse engineering framework|r2
+gui|Ghidra|Decompiler and disassembler|ghidra
+run|searchsploit|Search the Exploit-DB archive|searchsploit
+run|Practice lab (Docker targets)|DVWA, Juice Shop and friends, on localhost|undrabyte-lab list
+run|Add more tools|BlackArch groups and AUR builds|undrabyte-toolkit
+MENU
+}
+
+menu_dev() {
+    cat <<'MENU'
+run|Neovim|Terminal editor|nvim
+gui|VS Code|Graphical editor|code
+run|Python|REPL|python
+run|Node|REPL|node
+run|Shell|A plain interactive shell|${SHELL:-/bin/bash}
+run|lazygit|Git, comfortably|lazygit
+run|Docker status|Containers on this machine|docker ps -a
+run|virt-manager|Nested virtual machines|virt-manager
+run|btop|Processes, CPU, memory, disks|btop
+MENU
+}
+
+menu_play() {
+    cat <<'MENU'
+run|Check the gaming stack|Drivers, Vulkan, gamemode, limits|undrabyte-game check
+gui|Steam|Launched with gamemode and MangoHud|undrabyte-game steam
+run|Epic / GOG (Heroic)|Launch Heroic, or install it on first use|undrabyte-game epic
+run|Epic (Legendary CLI)|The Epic launcher on the command line|undrabyte-game legendary
+gui|Lutris|Wine and non-Steam game management|lutris
+gui|RetroArch|Emulation frontend|retroarch
+run|Launch options and VM advice|What works in a VM, and what needs passthrough|undrabyte-game tips
+run|Graphics health|Driver, 3D acceleration, guest agent|undrabyte-vmcheck
+MENU
+}
+
+menu_system() {
+    cat <<'MENU'
+gui|Software (install apps)|Point-and-click installer: browsers, media, office, graphics|undrabyte-software
+gui|Run a Windows program|Run .exe / .msi with Wine (installed on demand)|undrabyte-winapps
+note|---|---|---
+run|Optimisation status|What is tuned, and what is not|undrabyte-optimize status
+run|Tune for this platform|Detects VM or bare metal and applies the right profile|sudo undrabyte-optimize apply
+run|Tune aggressively|Also trades desktop effects and indexing for speed|sudo undrabyte-optimize apply --aggressive
+run|Undo tuning|Revert everything the optimiser changed|sudo undrabyte-optimize revert
+note|---|---|---
+run|Theme|Current theme settings|undrabyte-theme status
+run|Dark mode|Apply the dark theme everywhere|undrabyte-theme dark
+run|Light mode|Apply the light theme everywhere|undrabyte-theme light
+note|---|---|---
+run|Virtualisation health|Hypervisor, 3D, guest agent, folder sharing|undrabyte-vmcheck
+run|Package toolkit|BlackArch, AUR, system update|undrabyte-toolkit status
+run|Update everything|pacman -Syu, and AUR if paru is present|sudo undrabyte-toolkit update
+note|---|---|---
+run|Install to disk|Partition, format and install this system|sudo undrabyte-install --dry-run
+MENU
+}
+
+menu_help() {
+    cat <<'MENU'
+run|Welcome tour|What this image is|undrabyte-welcome
+run|Using the desktop|No commands needed - a Windows cheat sheet|less /usr/local/share/undrabyte/docs/DESKTOP.md
+run|Launcher and dark mode|This menu, the theme, desktop defaults|less /usr/local/share/undrabyte/docs/LAUNCHER.md
+run|Optimisation|What gets tuned for a VM vs bare metal|less /usr/local/share/undrabyte/docs/OPTIMISATION.md
+run|Running in a VM|Per-hypervisor settings|less /usr/local/share/undrabyte/docs/RUNNING-VMS.md
+run|Gaming|What runs in a VM, and GPU passthrough|less /usr/local/share/undrabyte/docs/GAMING.md
+run|Security toolkit|What is installed, and how to build a lab|less /usr/local/share/undrabyte/docs/SECURITY-TOOLKIT.md
+run|WiFi security|Cracking your own WPA2, wirelessly|less /usr/local/share/undrabyte/docs/WIFI-SECURITY.md
+run|Small machines|Tuning for 4 GB and two cores|less /usr/local/share/undrabyte/docs/LOW-SPEC.md
+run|Installing|Putting this on a disk|less /usr/local/share/undrabyte/docs/INSTALL.md
+run|Lawful use|Licensing, and the rules around the offensive tooling|less /usr/local/share/undrabyte/docs/LEGAL.md
+MENU
+}
+
+# ---------------------------------------------------------------- status --
+
+current_theme() {
+    if   [[ -r $THEME_FILE_USER ]]; then cat "$THEME_FILE_USER"
+    elif [[ -r $THEME_FILE_SYS  ]]; then cat "$THEME_FILE_SYS"
+    else echo dark; fi
+}
+
+status_line() {
+    local virt ram profile
+    virt="$(systemd-detect-virt 2>/dev/null || echo bare-metal)"
+    [[ $virt == none ]] && virt=bare-metal
+    ram="$(awk '/MemTotal/{printf "%.0f", $2/1048576}' /proc/meminfo 2>/dev/null || echo '?')"
+    profile="$(grep -m1 '^profile:' /var/lib/undrabyte/optimize.state 2>/dev/null | cut -d: -f2- || echo untuned)"
+    printf '%s  ·  %s GB  ·  %s cores  ·  theme: %s  ·  tuning: %s' \
+        "$virt" "$ram" "$(nproc 2>/dev/null || echo '?')" "$(current_theme)" "${profile:-untuned}"
+}
+
+# --------------------------------------------------------------- drawing --
+
+repeat_char() { local n=$1 c=$2 out=""; while (( n-- > 0 )); do out+="$c"; done; printf '%s' "$out"; }
+
+draw_header() {
+    local cols=$1 title=$2
+    printf '%s%s╭%s╮%s\n' "$C_ACC" "" "$(repeat_char $((cols-2)) '─')" "$C_RST"
+    printf '%s│%s %s%-*s%s %s│%s\n' \
+        "$C_ACC" "$C_RST" "$C_BOLD$C_ACC" $((cols-4)) "UndraByte  —  $title" "$C_RST" "$C_ACC" "$C_RST"
+    printf '%s│%s %s%-*s%s %s│%s\n' \
+        "$C_ACC" "$C_RST" "$C_DIM" $((cols-4)) "$(status_line)" "$C_RST" "$C_ACC" "$C_RST"
+    printf '%s╰%s╯%s\n' "$C_ACC" "$(repeat_char $((cols-2)) '─')" "$C_RST"
+}
+
+draw_footer() {
+    local cols=$1 depth=$2
+    printf '\n%s%s%s\n' "$C_DIM" "$(repeat_char "$cols" '─')" "$C_RST"
+    local keys="↑↓/jk move   enter select   1-9 jump   t theme   q quit"
+    (( depth > 0 )) && keys="↑↓/jk move   enter select   esc back   t theme   q quit"
+    printf '%s %s%s\n' "$C_DIM" "$keys" "$C_RST"
+}
+
+# Grey out anything that is not actually installed, rather than failing later.
+entry_available() {
+    local kind=$1 cmd=$2
+    [[ $kind == note ]] && return 0
+    [[ $kind == menu ]] && return 0
+    local first=${cmd%% *}
+    [[ $first == sudo ]] && { cmd=${cmd#sudo }; first=${cmd%% *}; }
+    [[ $first == less ]] && { local f=${cmd#less }; [[ -r $f ]]; return; }
+    first="${first#\$\{SHELL:-}"; first="${first%\}}"
+    have "$first"
+}
+
+# ------------------------------------------------------------ menu loop --
+
+# Returns: 0 = an entry was chosen (RESULT_* set), 1 = go back, 2 = quit
+RESULT_KIND=""; RESULT_LABEL=""; RESULT_CMD=""
+
+run_menu() {
+    local menu_fn=$1 title=$2 depth=$3
+    local -a kinds=() labels=() descs=() cmds=()
+    local kind label desc cmd
+
+    while IFS='|' read -r kind label desc cmd; do
+        [[ -z $kind ]] && continue
+        kinds+=("$kind"); labels+=("$label"); descs+=("$desc"); cmds+=("$cmd")
+    done < <("$menu_fn")
+
+    local n=${#kinds[@]} sel=0
+    # Never park the cursor on a separator.
+    while (( sel < n )) && [[ ${kinds[sel]} == note ]]; do (( sel++ )); done
+
+    while true; do
+        local cols; cols=$(term_cols)
+        clear_screen
+        draw_header "$cols" "$title"
+        printf '\n'
+
+        local i num=0
+        for (( i = 0; i < n; i++ )); do
+            if [[ ${kinds[i]} == note ]]; then
+                printf '  %s%s%s\n' "$C_DIM" "$(repeat_char $((cols-4)) '·')" "$C_RST"
+                continue
+            fi
+            (( num++ ))
+            local avail="" mark=" "
+            if entry_available "${kinds[i]}" "${cmds[i]}"; then avail=1; else avail=""; fi
+            [[ ${kinds[i]} == menu ]] && mark="›"
+
+            local label_txt="${labels[i]}"
+            local desc_txt="${descs[i]}"
+            [[ -z $avail ]] && desc_txt="not installed — ${descs[i]}"
+
+            local w=$((cols - 34))
+            (( w < 10 )) && w=10
+            if (( i == sel )); then
+                printf '%s %d %-24s %-*s %s%s\n' "$C_SEL" "$num" "$label_txt" \
+                    "$w" "${desc_txt:0:$w}" "$mark" "$C_RST"
+            elif [[ -z $avail ]]; then
+                printf '%s %d %-24s %-*s %s%s\n' "$C_DIM" "$num" "$label_txt" \
+                    "$w" "${desc_txt:0:$w}" "$mark" "$C_RST"
+            else
+                printf ' %s%d%s %s%-24s%s %s%-*s%s %s\n' \
+                    "$C_ACC" "$num" "$C_RST" "$C_BOLD" "$label_txt" "$C_RST" \
+                    "$C_DIM" "$w" "${desc_txt:0:$w}" "$C_RST" "$mark"
+            fi
+        done
+
+        draw_footer "$cols" "$depth"
+
+        local key rest
+        IFS= read -rsn1 key || { RESULT_KIND=quit; return 2; }
+        case $key in
+            $'\033')
+                read -rsn2 -t 0.05 rest || rest=""
+                case $rest in
+                    '[A') (( sel > 0 )) && (( sel-- )) ;;
+                    '[B') (( sel < n-1 )) && (( sel++ )) ;;
+                    '')   return 1 ;;   # bare Esc
+                esac
+                ;;
+            k) (( sel > 0 )) && (( sel-- )) ;;
+            j) (( sel < n-1 )) && (( sel++ )) ;;
+            $'\x7f') return 1 ;;                       # backspace
+            q|Q) return 2 ;;
+            t|T)
+                show_cursor; clear_screen
+                undrabyte-theme toggle || true
+                printf '\n%sPress any key…%s' "$C_DIM" "$C_RST"; read -rsn1 _ || true
+                hide_cursor
+                ;;
+            [1-9])
+                local want=$key count=0 idx
+                for (( idx = 0; idx < n; idx++ )); do
+                    [[ ${kinds[idx]} == note ]] && continue
+                    (( count++ ))
+                    if (( count == want )); then
+                        RESULT_KIND=${kinds[idx]}
+                        RESULT_LABEL=${labels[idx]}
+                        RESULT_CMD=${cmds[idx]}
+                        return 0
+                    fi
+                done
+                ;;
+            '' | $'\n')
+                (( n == 0 )) && continue
+                [[ ${kinds[sel]} == note ]] && continue
+                RESULT_KIND=${kinds[sel]}
+                RESULT_LABEL=${labels[sel]}
+                RESULT_CMD=${cmds[sel]}
+                return 0
+                ;;
+        esac
+        # Keep the selection off separators after any movement.
+        while (( sel < n )) && [[ ${kinds[sel]} == note ]]; do (( sel++ )); done
+        while (( sel > 0 )) && [[ ${kinds[sel]} == note ]]; do (( sel-- )); done
+    done
+}
+
+launch() {
+    local kind=$1 label=$2 cmd=$3
+    case $kind in
+        gui)
+            show_cursor
+            printf '\n%s==>%s launching %s\n' "$C_BOLD" "$C_RST" "$label"
+            # shellcheck disable=SC2086  # the command line is ours, word splitting is wanted
+            setsid nohup $cmd &>/dev/null &
+            sleep 1
+            hide_cursor
+            ;;
+        run)
+            show_cursor
+            clear_screen
+            printf '%s==> %s%s\n%s%s%s\n\n' "$C_BOLD" "$label" "$C_RST" "$C_DIM" "$cmd" "$C_RST"
+            # shellcheck disable=SC2086
+            eval $cmd
+            local rc=$?
+            printf '\n%s%s exited with %d. Press any key to return.%s' \
+                "$C_DIM" "$label" "$rc" "$C_RST"
+            read -rsn1 _ || true
+            hide_cursor
+            ;;
+    esac
+}
+
+# ----------------------------------------------------------- entry points --
+
+cmd_list() {
+    local fn=$1 indent=$2 kind label desc cmd
+    while IFS='|' read -r kind label desc cmd; do
+        [[ -z $kind || $kind == note ]] && continue
+        if [[ $kind == menu ]]; then
+            printf '%s%s%s%s\n' "$indent" "$C_BOLD" "$label" "$C_RST"
+            cmd_list "$cmd" "$indent  "
+        else
+            if entry_available "$kind" "$cmd"; then
+                printf '%s%s✓%s %-24s %s%s%s\n' "$indent" "$C_OK" "$C_RST" "$label" "$C_DIM" "$cmd" "$C_RST"
+            else
+                printf '%s%s·%s %-24s %s%s (not installed)%s\n' "$indent" "$C_WARN" "$C_RST" "$label" "$C_DIM" "$cmd" "$C_RST"
+            fi
+        fi
+    done < <("$fn")
+}
+
+interactive() {
+    local start_menu=${1:-menu_main} start_title=${2:-Launcher}
+    [[ -t 0 && -t 1 ]] || { printf '%serror:%s not a terminal. Try: undrabyte --list\n' "$C_ERR" "$C_RST" >&2; exit 1; }
+
+    trap 'show_cursor; clear_screen; exit 0' INT TERM
+    hide_cursor
+
+    local -a stack_fn=("$start_menu") stack_title=("$start_title")
+    while true; do
+        local depth=$(( ${#stack_fn[@]} - 1 ))
+        run_menu "${stack_fn[depth]}" "${stack_title[depth]}" "$depth"
+        case $? in
+            2) break ;;
+            1)
+                (( depth == 0 )) && break
+                unset 'stack_fn[depth]' 'stack_title[depth]'
+                stack_fn=("${stack_fn[@]}"); stack_title=("${stack_title[@]}")
+                ;;
+            0)
+                if [[ $RESULT_KIND == menu ]]; then
+                    stack_fn+=("$RESULT_CMD"); stack_title+=("$RESULT_LABEL")
+                else
+                    launch "$RESULT_KIND" "$RESULT_LABEL" "$RESULT_CMD"
+                fi
+                ;;
+        esac
+    done
+
+    show_cursor
+    clear_screen
+    printf '%sUndraByte%s — back to the shell. Run %sundrabyte%s to return.\n' \
+        "$C_ACC$C_BOLD" "$C_RST" "$C_BOLD" "$C_RST"
+}
+
+usage() { sed -n '3,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
+case ${1-} in
+    --list|-l)   cmd_list menu_main "" ;;
+    --version|-V)
+        # shellcheck source=/dev/null
+        ( . "$VERSION_FILE" 2>/dev/null; echo "UndraByte ${BUILD_ID:-rolling}" ) ;;
+    -h|--help)   usage ;;
+    security)    interactive menu_security "Security toolkit" ;;
+    dev|develop) interactive menu_dev      "Development" ;;
+    play|games)  interactive menu_play     "Games and 3D" ;;
+    system)      interactive menu_system   "System" ;;
+    help|docs)   interactive menu_help     "Help and documentation" ;;
+    '')          interactive ;;
+    *)           usage >&2; exit 1 ;;
+esac

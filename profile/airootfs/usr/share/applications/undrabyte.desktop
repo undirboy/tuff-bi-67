@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=UndraByte Launcher
+GenericName=Control Centre
+Comment=Every tool on this image, in one place
+Exec=undrabyte
+Icon=applications-system
+Terminal=true
+Categories=System;Settings;
+Keywords=undrabyte;launcher;tools;security;
+StartupNotify=false

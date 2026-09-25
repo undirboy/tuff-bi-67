@@ -1,0 +1,84 @@
+# UndraByte Linux - base system
+# Packages every edition gets. Kept close to the upstream archiso "releng"
+# profile so the live medium can boot, network and rescue real hardware.
+
+base
+linux
+linux-firmware
+mkinitcpio
+mkinitcpio-archiso
+mkinitcpio-nfs-utils
+intel-ucode
+amd-ucode
+
+# boot / installer plumbing
+arch-install-scripts
+archinstall
+efibootmgr
+grub
+syslinux
+edk2-shell
+memtest86+
+memtest86+-efi
+reflector
+squashfs-tools
+
+# filesystems & storage
+btrfs-progs
+cryptsetup
+dosfstools
+e2fsprogs
+exfatprogs
+f2fs-tools
+gptfdisk
+hdparm
+lvm2
+mdadm
+mtools
+nfs-utils
+ntfs-3g
+nvme-cli
+parted
+smartmontools
+udftools
+xfsprogs
+
+# recovery
+ddrescue
+fsarchiver
+partclone
+rsync
+testdisk
+
+# networking
+bind
+dhcpcd
+ethtool
+iw
+iwd
+modemmanager
+networkmanager
+openssh
+wireless-regdb
+wireless_tools
+wpa_supplicant
+
+# memory: compressed swap in RAM, which matters most on small guests
+zram-generator
+
+# shell & terminal basics
+bash-completion
+diffutils
+htop
+less
+man-db
+man-pages
+nano
+pv
+screen
+sudo
+tmux
+usbutils
+vim
+which
+zsh

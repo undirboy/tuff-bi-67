@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=UndraByte VM Health
+Comment=Hypervisor, 3D acceleration, guest agent and folder sharing
+Exec=sh -c 'undrabyte-vmcheck; echo; read -p "Press Enter to close " _'
+Icon=computer
+Terminal=true
+Categories=System;

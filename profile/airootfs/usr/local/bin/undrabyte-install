@@ -1,0 +1,345 @@
+#!/usr/bin/env bash
+#
+# Install UndraByte Linux from the live medium onto a disk.
+#
+# It does the same thing a careful person does by hand from the Arch wiki:
+# partition, format, pacstrap the package lists this ISO was built from,
+# generate an fstab, configure the chroot, install GRUB. Nothing is hidden,
+# every destructive step is printed before it runs, and --dry-run shows the
+# whole plan without touching anything.
+#
+# If you would rather use Arch's own installer, `undrabyte-install --archinstall`
+# hands over to `archinstall` instead.
+
+set -euo pipefail
+
+readonly SHARE=/usr/local/share/undrabyte
+readonly PKGDIR="$SHARE/packages"
+readonly TARGET=/mnt
+
+BOLD=$'\033[1m'; RST=$'\033[0m'; DIM=$'\033[2m'; RED=$'\033[31m'; YEL=$'\033[33m'
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+step() { printf '\n%s==> %s%s\n' "$BOLD" "$*" "$RST"; }
+
+DRY_RUN=0
+run() {
+    if (( DRY_RUN )); then
+        printf '%s  [dry-run] %s%s\n' "$DIM" "$*" "$RST"
+        return 0
+    fi
+    "$@"
+}
+
+# ---------------------------------------------------------------- options --
+
+DISK=""
+HOSTNAME_="undrabyte"
+USERNAME=""
+FSTYPE="ext4"
+EDITION="full"
+DESKTOP="kde"
+SWAP_SIZE=""
+TIMEZONE=""
+NOCONFIRM=0
+ENCRYPT=0
+
+usage() {
+    cat <<EOF
+${BOLD}undrabyte-install${RST} - install UndraByte Linux to a disk
+
+  --disk DEV          target disk, e.g. /dev/sda or /dev/nvme0n1 (prompted if omitted)
+  --hostname NAME     system hostname (default: $HOSTNAME_)
+  --user NAME         account to create (prompted if omitted)
+  --fs ext4|btrfs     root filesystem (default: $FSTYPE; btrfs gets @ / @home subvolumes)
+  --edition NAME      package set: full, security, dev, gaming, lite, minimal (default: $EDITION)
+  --desktop NAME      kde, xfce or none (default: $DESKTOP)
+  --swap SIZE         swapfile size, e.g. 8G (default: none)
+  --timezone ZONE     e.g. Europe/Berlin (default: detected from the network, else UTC)
+  --encrypt           LUKS2-encrypt the root partition (prompts for a passphrase)
+  --archinstall       hand over to Arch's own guided installer instead
+  --dry-run           print every command without running it
+  --noconfirm         do not ask for the final confirmation (scripted installs)
+  -h, --help          this text
+
+${YEL}This erases the target disk completely.${RST}
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --disk)        DISK=${2:?}; shift 2 ;;
+        --hostname)    HOSTNAME_=${2:?}; shift 2 ;;
+        --user)        USERNAME=${2:?}; shift 2 ;;
+        --fs)          FSTYPE=${2:?}; shift 2 ;;
+        --edition)     EDITION=${2:?}; shift 2 ;;
+        --desktop)     DESKTOP=${2:?}; shift 2 ;;
+        --swap)        SWAP_SIZE=${2:?}; shift 2 ;;
+        --timezone)    TIMEZONE=${2:?}; shift 2 ;;
+        --encrypt)     ENCRYPT=1; shift ;;
+        --archinstall) exec archinstall ;;
+        --dry-run)     DRY_RUN=1; shift ;;
+        --noconfirm)   NOCONFIRM=1; shift ;;
+        -h|--help)     usage; exit 0 ;;
+        *)             usage; die "unknown option: $1" ;;
+    esac
+done
+
+[[ $EUID -eq 0 ]] || die "run as root: sudo undrabyte-install"
+[[ $FSTYPE == ext4 || $FSTYPE == btrfs ]] || die "--fs must be ext4 or btrfs"
+[[ -d $PKGDIR ]] || die "package lists missing at $PKGDIR"
+
+command -v pacstrap &>/dev/null || die "pacstrap not found (arch-install-scripts)"
+
+UEFI=0
+[[ -d /sys/firmware/efi/efivars ]] && UEFI=1
+
+# ------------------------------------------------------------- collection --
+
+pick_disk() {
+    [[ -n $DISK ]] && return 0
+    echo
+    printf '%sAvailable disks%s\n\n' "$BOLD" "$RST"
+    lsblk -dpno NAME,SIZE,MODEL,TYPE | awk '$4=="disk"'
+    echo
+    read -rp 'Install to which disk? ' DISK
+}
+
+pick_user() {
+    [[ -n $USERNAME ]] && return 0
+    read -rp 'Username for the new account: ' USERNAME
+}
+
+pick_timezone() {
+    [[ -n $TIMEZONE ]] && return 0
+    TIMEZONE="$(curl -fsS --max-time 5 https://ipapi.co/timezone 2>/dev/null || true)"
+    [[ -n $TIMEZONE && -f /usr/share/zoneinfo/$TIMEZONE ]] || TIMEZONE="UTC"
+}
+
+resolve_packages() {
+    local -a lists=("$PKGDIR/00-base.list" "$PKGDIR/10-hardware.list" "$PKGDIR/20-vm-guest.list")
+    [[ $DESKTOP != none ]] && lists+=("$PKGDIR/30-desktop-$DESKTOP.list")
+    case $EDITION in
+        minimal)  ;;
+        lite)     lists+=("$PKGDIR/45-lite.list") ;;
+        dev)      lists+=("$PKGDIR/40-dev.list" "$PKGDIR/70-extras.list") ;;
+        security) lists+=("$PKGDIR/40-dev.list" "$PKGDIR/50-security.list" "$PKGDIR/70-extras.list") ;;
+        gaming)   lists+=("$PKGDIR/60-gaming.list" "$PKGDIR/70-extras.list") ;;
+        full)     lists+=("$PKGDIR/40-dev.list" "$PKGDIR/50-security.list"
+                          "$PKGDIR/60-gaming.list" "$PKGDIR/70-extras.list") ;;
+        *)        die "unknown edition: $EDITION" ;;
+    esac
+    # An installed system gets a real bootloader and a normal initramfs.
+    printf '%s\n' grub efibootmgr linux-firmware sudo networkmanager
+    grep -hvE '^\s*(#|$)' "${lists[@]}" | grep -vE '^(mkinitcpio-archiso|archinstall|memtest86\+.*)$'
+}
+
+# ------------------------------------------------------------------- plan --
+
+pick_disk
+[[ -b $DISK ]] || die "$DISK is not a block device"
+pick_user
+[[ $USERNAME =~ ^[a-z_][a-z0-9_-]*$ ]] || die "invalid username: $USERNAME"
+pick_timezone
+
+if [[ $DISK == *nvme* || $DISK == *mmcblk* || $DISK == *loop* ]]; then
+    P1="${DISK}p1"; P2="${DISK}p2"
+else
+    P1="${DISK}1"; P2="${DISK}2"
+fi
+
+mapfile -t PACKAGES < <(resolve_packages | sort -u)
+
+cat <<EOF
+
+${BOLD}Installation plan${RST}
+
+  target disk      ${RED}$DISK${RST}  ($(lsblk -dno SIZE "$DISK" | tr -d ' '), $(lsblk -dno MODEL "$DISK" | xargs))
+  firmware         $( ((UEFI)) && echo "UEFI (GPT + 1 GiB ESP)" || echo "legacy BIOS (GPT + BIOS boot partition)")
+  root filesystem  $FSTYPE$( ((ENCRYPT)) && echo " on LUKS2" )
+  swapfile         ${SWAP_SIZE:-none}
+  hostname         $HOSTNAME_
+  user             $USERNAME (wheel, sudo)
+  timezone         $TIMEZONE
+  edition          $EDITION / desktop: $DESKTOP
+  packages         ${#PACKAGES[@]}
+
+EOF
+
+if (( ! NOCONFIRM && ! DRY_RUN )); then
+    printf '%sEverything on %s will be destroyed.%s\n' "$RED$BOLD" "$DISK" "$RST"
+    read -rp "Type the disk path to confirm ($DISK): " confirm
+    [[ $confirm == "$DISK" ]] || die "aborted"
+fi
+
+# --------------------------------------------------------------- execute --
+
+step "Partitioning $DISK"
+run wipefs -af "$DISK"
+run sgdisk --zap-all "$DISK"
+if (( UEFI )); then
+    run sgdisk -n1:0:+1G   -t1:ef00 -c1:EFI  "$DISK"
+    run sgdisk -n2:0:0     -t2:8300 -c2:root "$DISK"
+else
+    run sgdisk -n1:0:+2M   -t1:ef02 -c1:BIOS "$DISK"
+    run sgdisk -n2:0:0     -t2:8300 -c2:root "$DISK"
+fi
+run partprobe "$DISK"
+run udevadm settle
+
+ROOTDEV="$P2"
+if (( ENCRYPT )); then
+    step "Encrypting $P2 (LUKS2)"
+    run cryptsetup luksFormat --type luks2 "$P2"
+    run cryptsetup open "$P2" cryptroot
+    ROOTDEV=/dev/mapper/cryptroot
+fi
+
+step "Creating filesystems"
+(( UEFI )) && run mkfs.fat -F32 -n EFI "$P1"
+if [[ $FSTYPE == btrfs ]]; then
+    run mkfs.btrfs -f -L UndraByte "$ROOTDEV"
+    run mount "$ROOTDEV" "$TARGET"
+    run btrfs subvolume create "$TARGET/@"
+    run btrfs subvolume create "$TARGET/@home"
+    run umount "$TARGET"
+    run mount -o noatime,compress=zstd:3,subvol=@ "$ROOTDEV" "$TARGET"
+    run mkdir -p "$TARGET/home"
+    run mount -o noatime,compress=zstd:3,subvol=@home "$ROOTDEV" "$TARGET/home"
+else
+    run mkfs.ext4 -F -L UndraByte "$ROOTDEV"
+    run mount "$ROOTDEV" "$TARGET"
+fi
+if (( UEFI )); then
+    run mkdir -p "$TARGET/boot"
+    run mount "$P1" "$TARGET/boot"
+fi
+
+step "Installing ${#PACKAGES[@]} packages (this is the long part)"
+run pacstrap -K "$TARGET" "${PACKAGES[@]}"
+
+step "Generating fstab"
+if (( DRY_RUN )); then
+    printf '%s  [dry-run] genfstab -U %s >> %s/etc/fstab%s\n' "$DIM" "$TARGET" "$TARGET" "$RST"
+else
+    genfstab -U "$TARGET" >> "$TARGET/etc/fstab"
+fi
+
+if [[ -n $SWAP_SIZE ]]; then
+    step "Creating a $SWAP_SIZE swapfile"
+    run mkdir -p "$TARGET/swap"
+    if [[ $FSTYPE == btrfs ]]; then
+        run btrfs filesystem mkswapfile --size "$SWAP_SIZE" "$TARGET/swap/swapfile"
+    else
+        run fallocate -l "$SWAP_SIZE" "$TARGET/swap/swapfile"
+        run chmod 600 "$TARGET/swap/swapfile"
+        run mkswap "$TARGET/swap/swapfile"
+    fi
+    (( DRY_RUN )) || echo '/swap/swapfile none swap defaults 0 0' >> "$TARGET/etc/fstab"
+fi
+
+step "Copying UndraByte configuration"
+for f in /etc/sysctl.d/99-undrabyte.conf \
+         /etc/security/limits.d/99-undrabyte.conf \
+         /etc/modprobe.d/undrabyte-wifi.conf \
+         /etc/udev/rules.d/60-undrabyte-input.rules \
+         /etc/pacman.conf \
+         /usr/lib/os-release; do
+    [[ -e $f ]] && run install -Dm0644 "$f" "$TARGET$f"
+done
+run install -Dm0644 /etc/sudoers.d/10-wheel "$TARGET/etc/sudoers.d/10-wheel"
+run chmod 0440 "$TARGET/etc/sudoers.d/10-wheel"
+# Note the glob: `undrabyte-*` would miss the launcher itself.
+for b in /usr/local/bin/undrabyte*; do
+    [[ $b == */undrabyte-install ]] && continue
+    run install -Dm0755 "$b" "$TARGET$b"
+done
+run install -Dm0755 /usr/local/bin/undrabyte-install "$TARGET/usr/local/bin/undrabyte-install"
+run cp -r "$SHARE" "$TARGET/usr/local/share/" 2>/dev/null || true
+
+# Desktop menu entries and the dark defaults, so an installed system looks
+# and behaves exactly like the live one.
+for d in /usr/share/applications/undrabyte*.desktop; do
+    [[ -e $d ]] && run install -Dm0644 "$d" "$TARGET$d"
+done
+if [[ -d /etc/skel ]]; then
+    if (( DRY_RUN )); then
+        printf '%s  [dry-run] cp -r /etc/skel/. %s/etc/skel/%s\n' "$DIM" "$TARGET" "$RST"
+    else
+        cp -r /etc/skel/. "$TARGET/etc/skel/"
+    fi
+fi
+[[ -e /etc/undrabyte/theme ]] && run install -Dm0644 /etc/undrabyte/theme "$TARGET/etc/undrabyte/theme"
+
+step "Configuring the installed system"
+CHROOT_SCRIPT=$(cat <<CHROOT
+set -euo pipefail
+ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime
+hwclock --systohc || true
+sed -i 's/^#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
+locale-gen
+echo 'LANG=en_US.UTF-8' > /etc/locale.conf
+echo 'KEYMAP=us' > /etc/vconsole.conf
+echo '$HOSTNAME_' > /etc/hostname
+cat > /etc/hosts <<'HOSTS'
+127.0.0.1   localhost
+::1         localhost
+HOSTS
+printf '127.0.1.1\t%s\n' '$HOSTNAME_' >> /etc/hosts
+
+mkinitcpio -P
+
+useradd -m -G wheel,users,audio,video,input,storage,network -s /bin/bash '$USERNAME'
+echo 'Set a password for $USERNAME:'
+passwd '$USERNAME'
+passwd --lock root
+
+systemctl enable NetworkManager.service
+systemctl enable systemd-timesyncd.service
+for unit in sddm.service lightdm.service docker.socket libvirtd.socket \\
+            qemu-guest-agent.service vboxservice.service vmtoolsd.service; do
+    systemctl enable "\$unit" 2>/dev/null || true
+done
+for grp in docker libvirt wireshark vboxsf games kvm; do
+    getent group "\$grp" >/dev/null && usermod -aG "\$grp" '$USERNAME'
+done
+
+# Same defaults the live image applies: dark theme, and tuning for whatever
+# this machine turns out to be.
+[ -x /usr/local/bin/undrabyte-theme ] && runuser -u '$USERNAME' -- /usr/local/bin/undrabyte-theme dark >/dev/null 2>&1 || true
+[ -x /usr/local/bin/undrabyte-optimize ] && /usr/local/bin/undrabyte-optimize apply >/dev/null 2>&1 || true
+CHROOT
+)
+
+if (( UEFI )); then
+    CHROOT_SCRIPT+=$'\n'"grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=UndraByte"
+else
+    CHROOT_SCRIPT+=$'\n'"grub-install --target=i386-pc $DISK"
+fi
+if (( ENCRYPT )); then
+    CHROOT_SCRIPT+=$'\n'"sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont block encrypt filesystems fsck)/' /etc/mkinitcpio.conf"
+    CHROOT_SCRIPT+=$'\n'"mkinitcpio -P"
+    CHROOT_SCRIPT+=$'\n'"sed -i \"s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\\\"cryptdevice=UUID=\$(blkid -s UUID -o value $P2):cryptroot root=/dev/mapper/cryptroot\\\"|\" /etc/default/grub"
+fi
+CHROOT_SCRIPT+=$'\n'"sed -i 's/^GRUB_DISTRIBUTOR=.*/GRUB_DISTRIBUTOR=\"UndraByte\"/' /etc/default/grub"
+CHROOT_SCRIPT+=$'\n'"grub-mkconfig -o /boot/grub/grub.cfg"
+
+if (( DRY_RUN )); then
+    printf '%s  [dry-run] arch-chroot %s bash -s <<<...%s\n' "$DIM" "$TARGET" "$RST"
+    printf '%s%s%s\n' "$DIM" "$CHROOT_SCRIPT" "$RST"
+else
+    arch-chroot "$TARGET" bash -s <<<"$CHROOT_SCRIPT"
+fi
+
+step "Done"
+cat <<EOF
+
+UndraByte is installed on $DISK.
+
+  ${DIM}umount -R $TARGET$( ((ENCRYPT)) && echo " && cryptsetup close cryptroot" )
+  reboot${RST}
+
+Remove the installation medium when the machine restarts. After first boot,
+run ${BOLD}undrabyte-vmcheck${RST} and ${BOLD}undrabyte-toolkit status${RST}.
+EOF

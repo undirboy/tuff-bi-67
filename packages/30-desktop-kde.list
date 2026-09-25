@@ -1,0 +1,42 @@
+# KDE Plasma edition (default): best Wayland + gaming + HiDPI story.
+
+plasma-desktop
+plasma-nm
+plasma-pa
+plasma-systemmonitor
+plasma-workspace-wallpapers
+powerdevil
+kscreen
+kinfocenter
+kwalletmanager
+sddm
+sddm-kcm
+
+# The X server for the Plasma X11 session (the one live-setup autologins into)
+# and for SDDM's default greeter. The built-in modesetting driver covers
+# virtio-gpu/QXL/VGA in a VM and Intel/AMD/nouveau on bare metal;
+# xf86-input-libinput gives X a working mouse and keyboard.
+xorg-server
+xorg-xinit
+xorg-xauth
+xf86-input-libinput
+breeze-gtk
+breeze-icons
+gnome-themes-extra
+xdg-desktop-portal-kde
+xdg-user-dirs
+yad          # GTK dialogs: powers the graphical Software installer
+ttf-liberation  # metric-compatible with Arial/Times/Courier (Office/web)
+
+dolphin
+konsole
+kate
+ark
+spectacle
+gwenview
+okular
+partitionmanager
+
+# graphical app store, so installing software needs no terminal
+discover
+packagekit

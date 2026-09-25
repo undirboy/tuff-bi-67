@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+#
+# Capture and crack a WPA/WPA2 handshake from an access point YOU OWN.
+#
+# This walks the standard, legal learning exercise: put an adapter into
+# monitor mode, capture the 4-way handshake from your own AP, and run it
+# against a wordlist offline. It refuses to run without you naming the BSSID
+# you are targeting, so it cannot be pointed at a network in passing.
+#
+#   undrabyte-wifi                 guided run: pick adapter, scan, capture, crack
+#   undrabyte-wifi scan            just scan for your networks
+#   undrabyte-wifi capture <bssid> <chan>   capture a handshake
+#   undrabyte-wifi crack <file> [wordlist]  crack a captured handshake
+#   undrabyte-wifi restore         put the adapter back to managed mode
+#
+# Everything here targets ONE bssid that you type in. Using it against a
+# network you do not own or administer is illegal in most of the world; see
+# docs/WIFI-SECURITY.md.
+
+set -uo pipefail
+
+BOLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; CYN=$'\033[36m'
+
+readonly WORKDIR="${UNDRABYTE_WIFI_DIR:-$HOME/wifi-captures}"
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+warn() { printf '%swarning:%s %s\n' "$YEL" "$RST" "$*" >&2; }
+have() { command -v "$1" &>/dev/null; }
+
+need_root() {
+    [[ $EUID -eq 0 ]] || exec sudo -E "$0" "$@"
+}
+
+# ---------------------------------------------------------- authorisation --
+
+confirm_ownership() {
+    # Skip when the caller has already asserted ownership (scripted use on a
+    # lab of your own), but make that an explicit, recorded choice.
+    [[ ${UNDRABYTE_WIFI_I_OWN_THIS:-0} == 1 ]] && return 0
+
+    cat <<EOF
+
+${YEL}${BOLD}Before you go on${RST}
+
+  Capturing a handshake and cracking it is legal on a network ${BOLD}you own or
+  administer${RST}, and a criminal offence on one you do not - in the US
+  (CFAA), the UK (Computer Misuse Act), the EU, and almost everywhere else.
+  Intent does not matter and "I was learning" is not a defence.
+
+  This tool targets the single BSSID you give it. Only give it your own.
+
+EOF
+    read -rp "Type 'I own this network' to continue: " reply
+    [[ $reply == "I own this network" ]] || die "not confirmed - stopping"
+}
+
+# ------------------------------------------------------------- adapters --
+
+monitor_capable() {
+    # An adapter can enter monitor mode only if its driver advertises it.
+    local phy
+    for phy in /sys/class/ieee80211/*; do
+        [[ -e $phy ]] || continue
+        iw phy "$(basename "$phy")" info 2>/dev/null \
+            | grep -qi 'monitor' && return 0
+    done
+    return 1
+}
+
+wireless_ifaces() {
+    iw dev 2>/dev/null | awk '/Interface/{print $2}'
+}
+
+pick_iface() {
+    local -a ifs=()
+    mapfile -t ifs < <(wireless_ifaces)
+    (( ${#ifs[@]} )) || die "no wireless interface found.
+
+    A VM's virtio NIC has no radio. Pass a real USB WiFi adapter through:
+      host:  ./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --wifi
+    then run this again inside the guest."
+    if (( ${#ifs[@]} == 1 )); then printf '%s\n' "${ifs[0]}"; return; fi
+    printf '%sWireless interfaces:%s\n' "$BOLD" "$RST" >&2
+    local i
+    for i in "${!ifs[@]}"; do printf '  %d) %s\n' "$((i+1))" "${ifs[i]}" >&2; done
+    local c; read -rp "Use which? [1-${#ifs[@]}] " c
+    if ! [[ $c =~ ^[0-9]+$ ]] || (( c<1 || c>${#ifs[@]} )); then die "not a choice"; fi
+    printf '%s\n' "${ifs[c-1]}"
+}
+
+MON=""
+start_monitor() {
+    local iface=$1
+    info "putting $iface into monitor mode"
+    have airmon-ng || die "aircrack-ng is not installed (this is not the security/full edition)"
+    airmon-ng check kill &>/dev/null || true
+    airmon-ng start "$iface" &>/dev/null || die "could not start monitor mode on $iface"
+    # airmon-ng renames the interface; find whatever is now in monitor type.
+    MON="$(iw dev | awk '/Interface/{i=$2} /type monitor/{print i}' | head -1)"
+    [[ -n $MON ]] || MON="${iface}mon"
+    info "monitor interface: ${CYN}$MON${RST}"
+}
+
+# -------------------------------------------------------------- actions --
+
+cmd_scan() {
+    need_root "$@"
+    local iface; iface="$(pick_iface)"
+    start_monitor "$iface"
+    info "scanning - press ${BOLD}Ctrl-C${RST} when you can see your own network"
+    sleep 1
+    airodump-ng "$MON"
+}
+
+cmd_capture() {
+    need_root "$@"
+    local bssid=$1 chan=$2
+    [[ $bssid =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]] || die "bssid looks wrong: $bssid"
+    [[ $chan  =~ ^[0-9]+$ ]] || die "channel must be a number: $chan"
+    confirm_ownership
+    mkdir -p "$WORKDIR"
+    local iface; iface="$(pick_iface)"
+    start_monitor "$iface"
+
+    local base
+    base="$WORKDIR/handshake-${bssid//:/}-$(date +%H%M%S)"
+    info "capturing on channel $chan, BSSID $bssid"
+    cat <<EOF
+
+  ${DIM}airodump-ng writes to $base-01.cap
+  Leave this running. In another terminal you can speed things up by forcing
+  a device already on YOUR network to reconnect:
+    ${RST}${CYN}sudo aireplay-ng --deauth 3 -a $bssid $MON${DIM}
+  Watch the top-right of the airodump screen for "WPA handshake: $bssid".
+  Then press Ctrl-C here.${RST}
+
+EOF
+    read -rp "Press Enter to start the capture "
+    airodump-ng --bssid "$bssid" --channel "$chan" --write "$base" --write-interval 1 "$MON"
+
+    local cap="${base}-01.cap"
+    if [[ -f $cap ]]; then
+        info "capture saved: ${CYN}$cap${RST}"
+        if have aircrack-ng && aircrack-ng "$cap" 2>/dev/null | grep -q '1 handshake'; then
+            printf '%s  a handshake is present - crack it with:%s\n' "$GRN" "$RST"
+            printf '    undrabyte-wifi crack %s\n' "$cap"
+        else
+            warn "no complete handshake captured yet. Re-run, and deauth a connected device to force one."
+        fi
+    fi
+}
+
+cmd_crack() {
+    local cap=$1 wordlist=${2:-}
+    [[ -f $cap ]] || die "no such capture: $cap"
+    if [[ -z $wordlist ]]; then
+        for w in /usr/share/wordlists/rockyou.txt \
+                 /usr/share/seclists/Passwords/Leaked-Databases/rockyou.txt \
+                 /usr/share/dict/words; do
+            [[ -f $w ]] && { wordlist=$w; break; }
+        done
+    fi
+    [[ -n $wordlist && -f $wordlist ]] || die "no wordlist found. Pass one:
+    undrabyte-wifi crack $cap /path/to/wordlist.txt
+    (rockyou lives in the 'seclists' AUR package: undrabyte-toolkit aur seclists)"
+
+    info "cracking $cap against $(basename "$wordlist")"
+    printf '%s  This is an offline dictionary attack: it only finds passwords\n  that are in the wordlist. A strong passphrase will not be in one.%s\n\n' \
+        "$DIM" "$RST"
+
+    if have hashcat; then
+        printf '%sTip:%s hashcat is much faster if you have a GPU. Convert and run:\n' "$BOLD" "$RST"
+        printf '  %shcxpcapngtool -o hs.hc22000 %s && hashcat -m 22000 hs.hc22000 %s%s\n\n' \
+            "$DIM" "$cap" "$wordlist" "$RST"
+    fi
+    aircrack-ng -w "$wordlist" "$cap"
+}
+
+cmd_restore() {
+    need_root "$@"
+    info "returning wireless adapters to managed mode"
+    local m
+    for m in $(iw dev | awk '/Interface/{i=$2} /type monitor/{print i}'); do
+        airmon-ng stop "$m" &>/dev/null || true
+    done
+    systemctl restart NetworkManager 2>/dev/null || true
+    info "done - NetworkManager restarted"
+}
+
+guided() {
+    cat <<EOF
+${BOLD}UndraByte WiFi handshake exercise${RST}
+
+This is the standard way to learn how WPA2 holds up: capture the 4-way
+handshake when a device joins ${BOLD}your own${RST} access point, then try to recover the
+passphrase offline. Steps:
+
+  1. scan      - find your network's BSSID and channel
+  2. capture   - grab a handshake (deauth a device to trigger one)
+  3. crack     - dictionary attack against the capture
+  4. restore   - put your adapter back to normal
+
+EOF
+    read -rp "Start with a scan? [Y/n] " go
+    [[ ${go,,} == n* ]] && { info "run 'undrabyte-wifi scan' when ready"; exit 0; }
+    confirm_ownership
+    cmd_scan
+    cat <<EOF
+
+Note the ${BOLD}BSSID${RST} and ${BOLD}CH${RST} (channel) of your network from the scan, then:
+  ${CYN}undrabyte-wifi capture <BSSID> <channel>${RST}
+and afterwards:
+  ${CYN}undrabyte-wifi crack <the .cap file>${RST}
+  ${CYN}undrabyte-wifi restore${RST}
+EOF
+}
+
+case ${1-} in
+    ""|guided) guided ;;
+    scan)      cmd_scan "$@" ;;
+    capture)   shift; [[ $# -ge 2 ]] || die "usage: undrabyte-wifi capture <bssid> <channel>"; cmd_capture "$@" ;;
+    crack)     shift; [[ $# -ge 1 ]] || die "usage: undrabyte-wifi crack <file.cap> [wordlist]"; cmd_crack "$@" ;;
+    restore)   cmd_restore "$@" ;;
+    -h|--help) sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//' ;;
+    *)         die "unknown command: $1 (try: undrabyte-wifi --help)" ;;
+esac

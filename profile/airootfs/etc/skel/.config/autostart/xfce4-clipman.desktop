@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Clipboard Manager
+Comment=Keeps a history of what you copy
+Exec=xfce4-clipman
+Icon=xfce4-clipman
+Terminal=false
+X-XFCE-Autostart-enabled=true

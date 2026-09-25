@@ -1,0 +1,181 @@
+# UndraByte Linux
+
+A buildable Linux distribution for the three things that usually need three
+different machines: **security work**, **software development**, and **gaming** —
+designed from the start to run inside a virtual machine.
+
+UndraByte is an Arch-based live ISO built with [archiso](https://gitlab.archlinux.org/archlinux/archiso).
+This repository is the *recipe*, not the image: you build the ISO yourself, so
+you know exactly what is in it and can change any of it.
+
+```
+git clone https://github.com/undirboy/tuff-bi-67 && cd tuff-bi-67
+./scripts/check-host.sh           # can this machine build and run it?
+sudo ./scripts/build-iso.sh       # build (Arch host) …
+./scripts/build-iso.sh --docker   # … or anywhere with Docker
+./scripts/run-vm.sh               # boot it in QEMU/KVM
+```
+
+---
+
+## What you get
+
+| | |
+|---|---|
+| **Base** | Arch Linux (rolling), Linux mainline kernel, systemd, NetworkManager |
+| **Desktop** | KDE Plasma (default) or XFCE, or headless |
+| **Security** | nmap, Wireshark, Metasploit, aircrack-ng, hashcat, John, sqlmap, Ghidra, radare2, mitmproxy, bettercap, impacket, Burp-ready JVM — plus one command to add [BlackArch](https://blackarch.org)'s ~3000 tools |
+| **Development** | gcc/clang/LLVM, Python, Go, Rust, Node, JDK, Neovim, VS Code, Docker, Podman, libvirt/QEMU for nested VMs |
+| **Gaming** | Steam, Proton, Lutris, Wine, Gamescope, GameMode, MangoHud, RetroArch, PipeWire low-latency audio, full 32-bit multilib stack |
+| **Virtualisation** | Guest agents for QEMU/KVM, VirtualBox, VMware and Hyper-V; virtio-gpu / virgl / venus 3D; clipboard, resize and folder sharing that work out of the box |
+| **Interface** | `undrabyte` launcher, dark by default everywhere, and one command that tunes the machine for whichever of bare metal or a VM it turns out to be |
+
+Live user: **`forge` / `forge`** (change it in `profile/airootfs/etc/undrabyte/live.conf`
+before building anything you hand to someone else).
+
+## Editions
+
+The ISO contents come from plain text manifests in [`packages/`](packages/), so
+you can pick how much you want:
+
+| Edition | Contents | Rough ISO size |
+|---|---|---|
+| `minimal` | base + desktop + VM guest tools | ~2 GB |
+| `lite` | + a curated hacking/coding toolset, sized for a 2-vCPU / 4 GB guest | ~2.5 GB |
+| `dev` | + toolchains, editors, containers | ~4 GB |
+| `security` | + dev, + the security toolkit | ~6 GB |
+| `gaming` | + Steam/Proton/Wine/emulation | ~5 GB |
+| `full` *(default)* | everything above | ~8 GB |
+| `--with-blackarch` | + four BlackArch groups | +4–6 GB |
+
+```bash
+make iso EDITION=security DESKTOP=xfce VM_ONLY=1
+make packages EDITION=gaming          # see exactly what that resolves to
+```
+
+`--vm-only` drops bare-metal firmware blobs (~400 MB) from an image you will
+only ever boot in a hypervisor.
+
+**On an older laptop?** `make iso-lite` builds an XFCE image that runs in a
+2-vCPU / 4 GB guest — a dual-core i5 with 8 GB of RAM handles it fine. The
+security and coding tooling all works there; 3D games do not.
+[docs/LOW-SPEC.md](docs/LOW-SPEC.md) has the numbers.
+
+## Running it
+
+`scripts/run-vm.sh` wraps QEMU with settings that are correct rather than
+default — KVM when available, UEFI via OVMF, virtio everywhere, and a host
+OpenGL context so the desktop is not stuck on software rendering:
+
+```bash
+./scripts/run-vm.sh                                   # live boot the newest ISO
+./scripts/run-vm.sh --disk vm/undrabyte.qcow2 --size 80G   # with a disk to install onto
+./scripts/run-vm.sh --share ~/projects --ram 12G --cpus 8
+```
+
+Whichever you boot — a VM or the metal — the image behaves the same. On first
+boot it applies the dark theme, detects the platform and tunes for it, so
+there is nothing to configure before you start working.
+
+VirtualBox, VMware and Hyper-V are supported too — the per-hypervisor settings
+that matter (and the ones that silently cost you 3D acceleration) are in
+[docs/RUNNING-VMS.md](docs/RUNNING-VMS.md).
+
+Inside the guest, `undrabyte-vmcheck` tells you what is working and, for
+anything that is not, what to change on the host.
+
+## Installing to a disk
+
+The live image carries `undrabyte-install`: partition, format (ext4 or btrfs,
+optionally LUKS2-encrypted), pacstrap the same package lists the ISO was built
+from, configure the chroot, install GRUB. Every destructive step is printed
+first, and `--dry-run` shows the whole plan without touching the disk.
+
+```bash
+sudo undrabyte-install --dry-run --disk /dev/vda
+sudo undrabyte-install --disk /dev/vda --fs btrfs --swap 8G --user you
+```
+
+## On the ISO
+
+| Command | What it does |
+|---|---|
+| `undrabyte` | **the launcher** — every tool on the image, one keyboard-driven menu |
+| `undrabyte-theme` | dark mode across GTK, Qt/KDE, XFCE and the console (dark is the default) |
+| `undrabyte-optimize` | tune for bare metal or for a VM, and undo it again |
+| `undrabyte-welcome` | tour of the image |
+| `undrabyte-vmcheck` | hypervisor, 3D, guest-agent and sharing health, with fixes |
+| `undrabyte-game` | gaming stack check, launch options, `undrabyte-game steam` |
+| `undrabyte-toolkit` | enable BlackArch, install tool groups, bootstrap AUR |
+| `undrabyte-install` | install to disk |
+
+## Repository layout
+
+```
+packages/          package manifests, one per concern — the thing you edit most
+profile/           the archiso profile
+  profiledef.sh    ISO metadata, boot modes, filesystem type
+  airootfs/        files laid over the live root filesystem
+  grub/ syslinux/  UEFI and BIOS boot menus
+scripts/
+  check-host.sh    does your machine meet the requirements? run this first
+  build-iso.sh     stages the profile, generates packages.x86_64, runs mkarchiso
+  run-vm.sh        QEMU launcher
+  verify-packages.sh   checks every package name against the real repos
+  lint.sh          shell, manifest and profile checks
+docs/              per-topic documentation
+```
+
+`profile/packages.x86_64` is **generated**, not committed: the edition flags
+decide what goes in it. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Before your first build
+
+Check the machine you are on — CPU virtualisation, RAM, disk, GPU, hypervisor
+and build tooling, with the fix for anything missing:
+
+```bash
+./scripts/check-host.sh
+```
+
+Package names drift in a rolling distribution. `build-iso.sh` checks the whole
+set against the repositories before `mkarchiso` starts, so a rename fails in
+seconds rather than forty minutes in — but you can check without building:
+
+```bash
+./scripts/verify-packages.sh --docker
+```
+
+`./scripts/lint.sh` additionally catches conflicting package pairs, offline.
+
+Then see [docs/BUILDING.md](docs/BUILDING.md) for host requirements, build
+times and disk space.
+
+## Documentation
+
+- [BUILDING.md](docs/BUILDING.md) — build the ISO, on Arch or anywhere else
+- [DESKTOP.md](docs/DESKTOP.md) — using the desktop with no commands (a Windows cheat sheet)
+- [LAUNCHER.md](docs/LAUNCHER.md) — the launcher, dark mode, desktop defaults
+- [OPTIMISATION.md](docs/OPTIMISATION.md) — what gets tuned for a VM vs bare metal, and why
+- [RUNNING-VMS.md](docs/RUNNING-VMS.md) — QEMU, VirtualBox, VMware, Hyper-V, Proxmox
+- [LOW-SPEC.md](docs/LOW-SPEC.md) — older laptops: 8 GB, dual core, Intel Macs
+- [GAMING.md](docs/GAMING.md) — what runs in a VM, and GPU passthrough when it doesn't
+- [SECURITY-TOOLKIT.md](docs/SECURITY-TOOLKIT.md) — what's included, BlackArch, building a lab
+- [WIFI-SECURITY.md](docs/WIFI-SECURITY.md) — cracking your own WPA2 wirelessly, from a VM or bare metal
+- [INSTALL.md](docs/INSTALL.md) — installing to a disk
+- [CUSTOMISING.md](docs/CUSTOMISING.md) — your own packages, branding, defaults
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the build actually works
+- [LEGAL.md](docs/LEGAL.md) — licensing, and the rules around the offensive tooling
+
+## Use it legally
+
+UndraByte ships tools that intercept traffic, crack credentials and exploit
+software. Those are legitimate professional tools, and using them against
+systems you neither own nor have **written permission** to test is a criminal
+offence in most of the world. Build a lab — [SECURITY-TOOLKIT.md](docs/SECURITY-TOOLKIT.md)
+shows how to stand one up in an afternoon — and stay inside it.
+
+## Licence
+
+MIT for this build system; see [LICENSE](LICENSE). The software a built image
+contains keeps its own licences.
