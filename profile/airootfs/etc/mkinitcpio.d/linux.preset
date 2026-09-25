@@ -1,8 +1,16 @@
 # mkinitcpio preset file for the 'linux' package on UndraByte live media
+#
+# The 'archiso' preset MUST be built with the archiso mkinitcpio config
+# (/etc/mkinitcpio.conf.d/archiso.conf), which supplies the `archiso` hook
+# that finds and mounts the live squashfs medium at boot. Pointing this at the
+# stock /etc/mkinitcpio.conf instead produces a normal-install initramfs with
+# no archiso hook - the live medium is never found and the system drops to
+# emergency mode. Set the config per preset (archiso_config), exactly as the
+# upstream archiso releng profile does.
 
 PRESETS=('archiso')
 
 ALL_kver='/boot/vmlinuz-linux'
-ALL_config='/etc/mkinitcpio.conf'
 
-archiso_image="/boot/initramfs-linux.img"
+archiso_config='/etc/mkinitcpio.conf.d/archiso.conf'
+archiso_image='/boot/initramfs-linux.img'
