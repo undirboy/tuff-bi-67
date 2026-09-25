@@ -26,6 +26,7 @@ gnome-themes-extra
 xdg-desktop-portal-kde
 xdg-user-dirs
 yad          # GTK dialogs: powers the graphical Software installer
+ttf-liberation  # metric-compatible with Arial/Times/Courier (Office/web)
 
 dolphin
 konsole

@@ -29,7 +29,8 @@ rizin-cutter
 game-devices-udev
 broadcom-wl-dkms
 protonup-qt
-bottles
+bottles                 # a friendly GUI for running Windows apps/games in Wine
+ttf-ms-fonts           # the real Microsoft fonts (Arial, Times New Roman, ...)
 sunshine
 moonlight-qt
 goverlay

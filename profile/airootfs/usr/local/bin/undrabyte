@@ -111,6 +111,7 @@ MENU
 menu_system() {
     cat <<'MENU'
 gui|Software (install apps)|Point-and-click installer: browsers, media, office, graphics|undrabyte-software
+gui|Run a Windows program|Run .exe / .msi with Wine (installed on demand)|undrabyte-winapps
 note|---|---|---
 run|Optimisation status|What is tuned, and what is not|undrabyte-optimize status
 run|Tune for this platform|Detects VM or bare metal and applies the right profile|sudo undrabyte-optimize apply
