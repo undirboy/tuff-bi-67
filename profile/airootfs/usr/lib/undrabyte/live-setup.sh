@@ -178,9 +178,22 @@ apply_defaults() {
 
     # Tune for whatever we turned out to be running on. Cheap, and it is the
     # difference between a snappy VM desktop and a sluggish one.
+    #
+    # Auto-pick the *aggressive* profile on a VM or a low-spec machine (<=2
+    # cores or <=4 GB RAM): those are exactly the cases where the desktop
+    # feels laggy under software rendering, and trimming desktop effects and
+    # background indexing is what makes it snappy. A capable bare-metal
+    # machine keeps its eye-candy on the standard profile. This runs every
+    # boot, so the system is always tuned without anyone asking.
     if [[ -x /usr/local/bin/undrabyte-optimize ]]; then
-        if timeout 60 /usr/local/bin/undrabyte-optimize apply &>/dev/null; then
-            log "applied the $(systemd-detect-virt &>/dev/null && echo vm || echo bare-metal) tuning profile"
+        local opt_args=(apply) tier=standard cores ram
+        cores="$(nproc 2>/dev/null || echo 4)"
+        ram="$(awk '/MemTotal/{printf "%d", $2/1048576}' /proc/meminfo 2>/dev/null || echo 8)"
+        if systemd-detect-virt &>/dev/null || (( cores <= 2 )) || (( ram <= 4 )); then
+            opt_args+=(--aggressive); tier=aggressive
+        fi
+        if timeout 90 /usr/local/bin/undrabyte-optimize "${opt_args[@]}" &>/dev/null; then
+            log "applied the $tier tuning profile ($(systemd-detect-virt &>/dev/null && echo vm || echo bare-metal), ${cores} cores, ${ram} GB RAM)"
         else
             warn "optimisation profile could not be applied"
         fi
