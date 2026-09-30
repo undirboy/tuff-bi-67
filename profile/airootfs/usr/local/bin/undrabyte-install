@@ -44,6 +44,7 @@ SWAP_SIZE=""
 TIMEZONE=""
 NOCONFIRM=0
 ENCRYPT=0
+GUIDED=0
 
 usage() {
     cat <<EOF
@@ -58,6 +59,7 @@ ${BOLD}undrabyte-install${RST} - install UndraByte Linux to a disk
   --swap SIZE         swapfile size, e.g. 8G (default: none)
   --timezone ZONE     e.g. Europe/Berlin (default: detected from the network, else UTC)
   --encrypt           LUKS2-encrypt the root partition (prompts for a passphrase)
+  --guided            ask for every option step by step (friendly wizard)
   --archinstall       hand over to Arch's own guided installer instead
   --dry-run           print every command without running it
   --noconfirm         do not ask for the final confirmation (scripted installs)
@@ -78,6 +80,7 @@ while [[ $# -gt 0 ]]; do
         --swap)        SWAP_SIZE=${2:?}; shift 2 ;;
         --timezone)    TIMEZONE=${2:?}; shift 2 ;;
         --encrypt)     ENCRYPT=1; shift ;;
+        --guided)      GUIDED=1; shift ;;
         --archinstall) exec archinstall ;;
         --dry-run)     DRY_RUN=1; shift ;;
         --noconfirm)   NOCONFIRM=1; shift ;;
@@ -96,6 +99,47 @@ UEFI=0
 [[ -d /sys/firmware/efi/efivars ]] && UEFI=1
 
 # ------------------------------------------------------------- collection --
+
+# Ask a question with a default; the default is used on an empty answer.
+ask_default() {
+    local prompt=$1 default=$2 ans
+    read -rp "$prompt [$default]: " ans
+    printf '%s' "${ans:-$default}"
+}
+
+# Ask the user to pick from a fixed set, re-asking until it is valid.
+ask_choice() {
+    local prompt=$1 default=$2; shift 2
+    local -a opts=("$@") ans
+    while :; do
+        read -rp "$prompt (${opts[*]}) [$default]: " ans
+        ans=${ans:-$default}
+        local o
+        for o in "${opts[@]}"; do [[ $ans == "$o" ]] && { printf '%s' "$ans"; return 0; }; done
+        printf '  "%s" is not one of: %s\n' "$ans" "${opts[*]}" >&2
+    done
+}
+
+# A step-by-step wizard: fills anything not already given on the command line,
+# so nobody has to memorise flags. Every choice keeps a sensible default.
+guided_setup() {
+    printf '\n%sUndraByte guided install%s\n' "$BOLD" "$RST"
+    printf '%sPress Enter to accept each default in [brackets]. This still shows the\nfull plan and asks you to confirm before anything is written.%s\n' \
+        "$DIM" "$RST"
+
+    pick_disk
+    while [[ -z $USERNAME ]]; do
+        read -rp 'Username for the new account: ' USERNAME
+    done
+    HOSTNAME_="$(ask_default 'Hostname for this machine' "$HOSTNAME_")"
+    DESKTOP="$(ask_choice 'Desktop' "$DESKTOP" kde xfce none)"
+    EDITION="$(ask_choice 'Edition (package set)' "$EDITION" full security dev gaming lite minimal)"
+    FSTYPE="$(ask_choice 'Root filesystem' "$FSTYPE" ext4 btrfs)"
+    SWAP_SIZE="$(ask_default 'Swapfile size (e.g. 8G, or none)' "${SWAP_SIZE:-none}")"
+    [[ $SWAP_SIZE == none ]] && SWAP_SIZE=""
+    local enc; enc="$(ask_choice 'Encrypt the disk with LUKS2?' "$( ((ENCRYPT)) && echo yes || echo no )" yes no)"
+    [[ $enc == yes ]] && ENCRYPT=1 || ENCRYPT=0
+}
 
 pick_disk() {
     [[ -n $DISK ]] && return 0
@@ -137,6 +181,8 @@ resolve_packages() {
 
 # ------------------------------------------------------------------- plan --
 
+(( GUIDED )) && guided_setup
+[[ $FSTYPE == ext4 || $FSTYPE == btrfs ]] || die "--fs must be ext4 or btrfs"
 pick_disk
 [[ -b $DISK ]] || die "$DISK is not a block device"
 pick_user

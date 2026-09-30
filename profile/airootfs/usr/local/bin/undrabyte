@@ -83,6 +83,7 @@ MENU
 
 menu_dev() {
     cat <<'MENU'
+run|AI helper (Claude)|Ask Claude for a command or an explanation|undrabyte-ai
 run|Neovim|Terminal editor|nvim
 gui|VS Code|Graphical editor|code
 run|Python|REPL|python
@@ -121,6 +122,10 @@ note|---|---|---
 run|Theme|Current theme settings|undrabyte-theme status
 run|Dark mode|Apply the dark theme everywhere|undrabyte-theme dark
 run|Light mode|Apply the light theme everywhere|undrabyte-theme light
+run|Night light (toggle)|Warm the screen to cut blue light (also Super+N)|undrabyte-nightlight toggle
+note|---|---|---
+gui|Firewall|Turn the firewall on and allow/deny apps|gufw
+run|Firewall status|Show firewall rules in the terminal|sudo ufw status verbose
 note|---|---|---
 run|Virtualisation health|Hypervisor, 3D, guest agent, folder sharing|undrabyte-vmcheck
 run|Package toolkit|BlackArch, AUR, system update|undrabyte-toolkit status

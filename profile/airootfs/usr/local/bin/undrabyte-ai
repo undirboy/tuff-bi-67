@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+#
+# undrabyte-ai - a terminal AI helper for UndraByte, powered by Claude.
+#
+#   undrabyte-ai "how do I list open ports?"
+#   undrabyte-ai --set-key          # store your Anthropic API key (once)
+#
+# The key is read from $ANTHROPIC_API_KEY, or from ~/.config/undrabyte/ai.env
+# (written by --set-key, mode 600). Get a key at:
+#   https://console.anthropic.com/settings/keys
+#
+# Model defaults to claude-opus-5-5; override with UNDRABYTE_AI_MODEL.
+
+set -uo pipefail
+
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/undrabyte"
+CONF_FILE="$CONF_DIR/ai.env"
+MODEL="${UNDRABYTE_AI_MODEL:-claude-opus-5-5}"
+API_URL="https://api.anthropic.com/v1/messages"
+SYSTEM_PROMPT="You are the UndraByte AI helper, a concise expert assistant inside UndraByte Linux, an Arch-based system for security testing, coding and gaming. Answer clearly and briefly. Give exact shell commands when they help, and flag anything destructive before the user runs it. Only assist with security testing of systems the user owns or is explicitly authorised to test."
+
+die() { printf 'undrabyte-ai: %s\n' "$*" >&2; exit 1; }
+
+load_key() {
+    [ -n "${ANTHROPIC_API_KEY:-}" ] && return 0
+    # shellcheck source=/dev/null
+    [ -r "$CONF_FILE" ] && . "$CONF_FILE"
+    [ -n "${ANTHROPIC_API_KEY:-}" ]
+}
+
+set_key() {
+    mkdir -p "$CONF_DIR" && chmod 700 "$CONF_DIR"
+    printf 'Paste your Anthropic API key (https://console.anthropic.com/settings/keys):\n> '
+    read -r key
+    [ -n "${key:-}" ] || die "no key entered."
+    umask 077
+    printf 'ANTHROPIC_API_KEY=%s\n' "$key" > "$CONF_FILE"
+    chmod 600 "$CONF_FILE"
+    printf 'Saved to %s. Try:\n  undrabyte-ai "explain the nmap command"\n' "$CONF_FILE"
+}
+
+ask() {
+    local prompt="$*"
+    [ -n "$prompt" ] || die "usage: undrabyte-ai <your question>"
+    command -v jq   >/dev/null || die "jq is required (sudo pacman -S jq)"
+    command -v curl >/dev/null || die "curl is required (sudo pacman -S curl)"
+
+    if ! load_key; then
+        cat >&2 <<EOF
+No API key set yet.
+  1. Get one at https://console.anthropic.com/settings/keys
+  2. Run:  undrabyte-ai --set-key
+     (or export ANTHROPIC_API_KEY=... in your shell)
+EOF
+        exit 1
+    fi
+
+    local body resp
+    body="$(jq -n --arg m "$MODEL" --arg s "$SYSTEM_PROMPT" --arg p "$prompt" \
+        '{model:$m, max_tokens:2048, system:$s,
+          output_config:{effort:"low"},
+          messages:[{role:"user", content:$p}]}')"
+
+    resp="$(curl -sS --max-time 120 "$API_URL" \
+        -H 'content-type: application/json' \
+        -H "x-api-key: $ANTHROPIC_API_KEY" \
+        -H 'anthropic-version: 2023-06-01' \
+        -d "$body")" || die "could not reach the Anthropic API (network?)."
+
+    if [ "$(jq -r 'if .type == "error" then "err" else "ok" end' <<<"$resp" 2>/dev/null)" = "err" ]; then
+        die "API error: $(jq -r '.error.message // "unknown error"' <<<"$resp")"
+    fi
+    if [ "$(jq -r '.stop_reason // ""' <<<"$resp")" = "refusal" ]; then
+        die "the assistant declined to answer that request."
+    fi
+    jq -r '.content[]? | select(.type == "text") | .text' <<<"$resp"
+}
+
+# A small interactive loop for when it is launched with no arguments (e.g.
+# from the UndraByte launcher). Type a question, get an answer, repeat.
+repl() {
+    if ! load_key; then
+        cat <<EOF
+Welcome to the UndraByte AI helper (Claude).
+
+You need an Anthropic API key first:
+  1. Get one at https://console.anthropic.com/settings/keys
+  2. Run:  undrabyte-ai --set-key
+EOF
+        return 0
+    fi
+    printf 'UndraByte AI helper (Claude). Ask a question, or press Enter to quit.\n\n'
+    local q
+    while :; do
+        printf '\033[1;36mask>\033[0m '
+        IFS= read -r q || break
+        [ -n "${q:-}" ] || break
+        ask "$q"
+        printf '\n'
+    done
+    printf 'Bye.\n'
+}
+
+case "${1:-}" in
+    --set-key|set-key) set_key ;;
+    -h|--help)
+        cat <<EOF
+undrabyte-ai - terminal AI helper (Claude)
+
+usage:
+  undrabyte-ai                 start an interactive question/answer session
+  undrabyte-ai "<question>"    ask a single question
+  undrabyte-ai --set-key       store your Anthropic API key (once)
+
+Needs an Anthropic API key: https://console.anthropic.com/settings/keys
+EOF
+        ;;
+    "")
+        if [ -t 0 ]; then repl; else ask ""; fi ;;
+    *) ask "$@" ;;
+esac

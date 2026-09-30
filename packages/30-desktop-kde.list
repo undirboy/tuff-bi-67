@@ -40,3 +40,13 @@ partitionmanager
 # graphical app store, so installing software needs no terminal
 discover
 packagekit
+
+# Firewall: ufw drives the kernel firewall; plasma-firewall is its GUI in
+# System Settings. gufw is the standalone GTK GUI, handy and desktop-agnostic.
+ufw
+plasma-firewall
+gufw
+# redshift powers undrabyte-nightlight (Super+N): a warm/blue-light filter.
+# (Plasma also has its own Night Color; this keeps one toggle across editions.)
+redshift
+libnotify              # notify-send, for the night-light on/off toasts

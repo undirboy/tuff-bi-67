@@ -73,5 +73,7 @@ file_permissions=(
   ["/usr/local/bin/undrabyte-wifi"]="0:0:755"
   ["/usr/local/bin/undrabyte-set-wallpaper"]="0:0:755"
   ["/usr/local/bin/undrabyte-lab"]="0:0:755"
+  ["/usr/local/bin/undrabyte-ai"]="0:0:755"
+  ["/usr/local/bin/undrabyte-nightlight"]="0:0:755"
   ["/usr/lib/undrabyte/live-setup.sh"]="0:0:755"
 )

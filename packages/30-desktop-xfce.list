@@ -53,3 +53,11 @@ mousepad               # simple text editor (Notepad-like)
 librsvg                # renders the SVG wallpaper
 archlinux-wallpaper    # more wallpapers
 network-manager-applet # click-to-connect WiFi/ethernet in the tray
+
+# Firewall: ufw is the simple command-line front-end to the kernel firewall,
+# gufw is its point-and-click GUI (turn the firewall on, allow/deny apps).
+ufw
+gufw
+# redshift powers undrabyte-nightlight (Super+N): a warm/blue-light filter.
+redshift
+libnotify              # notify-send, for the night-light on/off toasts
