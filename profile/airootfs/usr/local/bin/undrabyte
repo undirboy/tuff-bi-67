@@ -85,6 +85,7 @@ MENU
 
 menu_dev() {
     cat <<'MENU'
+gui|Web browser (Brave)|The primary browser; installs on first launch if needed|undrabyte-brave
 run|AI helper (Claude)|Ask Claude for a command or an explanation|undrabyte-ai
 run|Neovim|Terminal editor|nvim
 gui|VS Code|Graphical editor|code

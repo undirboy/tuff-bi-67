@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+#
+# undrabyte-brave - the primary web browser.
+#
+# Brave is not in the Arch repositories (it is an AUR package, brave-bin), so
+# it cannot be baked into the ISO the way Firefox is. This wrapper makes it
+# behave as though it were: it launches Brave if it is installed, installs it
+# from the AUR the first time it is needed, and quietly falls back to Firefox
+# when the machine is offline. Every http/https link and the Brave icon go
+# through here, so the browser button always opens something that works and
+# becomes Brave as soon as it can.
+#
+#   undrabyte-brave [args...]    open Brave (installing it once, if needed)
+
+set -uo pipefail
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+find_brave() {
+    local c
+    for c in brave brave-browser; do have "$c" && { printf '%s' "$c"; return 0; }; done
+    return 1
+}
+
+notify() {
+    if have notify-send; then notify-send -a Brave "Brave" "$1" 2>/dev/null || true; fi
+    printf '%s\n' "$1" >&2
+}
+
+online() {
+    curl -fsS --max-time 5 -o /dev/null https://aur.archlinux.org/ 2>/dev/null && return 0
+    ping -c1 -W2 1.1.1.1 >/dev/null 2>&1
+}
+
+# A terminal emulator we can run the install in, so the user sees progress.
+pick_terminal() {
+    local t
+    for t in xfce4-terminal konsole gnome-terminal alacritty kitty xterm; do
+        have "$t" && { printf '%s' "$t"; return 0; }
+    done
+    return 1
+}
+
+install_brave() {
+    local script term
+    script="$(mktemp /tmp/undrabyte-brave-install.XXXXXX.sh)"
+    cat > "$script" <<'EOS'
+#!/usr/bin/env bash
+echo "Installing Brave for the first time (this only happens once)…"
+echo
+if sudo undrabyte-toolkit aur brave-bin; then
+    echo; echo "Brave is installed. Launching it now."
+else
+    echo; echo "Brave could not be installed. Firefox will open instead."
+    read -rp "Press Enter to continue… " _
+fi
+EOS
+    chmod +x "$script"
+
+    if term="$(pick_terminal)"; then
+        case "$term" in
+            gnome-terminal) "$term" -- bash "$script" ;;
+            konsole)        "$term" -e bash "$script" ;;
+            *)              "$term" -e "bash $script" ;;
+        esac
+    else
+        bash "$script"
+    fi
+    rm -f "$script"
+}
+
+main() {
+    local brave
+    if brave="$(find_brave)"; then
+        exec "$brave" "$@"
+    fi
+
+    if ! online; then
+        notify "You are offline — opening Firefox. Brave will install once you are back online."
+        exec firefox "$@"
+    fi
+
+    install_brave
+    if brave="$(find_brave)"; then
+        exec "$brave" "$@"
+    fi
+
+    notify "Brave is not available yet — opening Firefox."
+    exec firefox "$@"
+}
+
+main "$@"

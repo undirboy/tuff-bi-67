@@ -1,0 +1,16 @@
+[Default Applications]
+# Brave is the primary browser. These point at undrabyte-brave.desktop (a
+# wrapper) rather than brave-browser.desktop directly, so that web links open
+# and work even before Brave has finished installing from the AUR - the
+# wrapper launches Brave when present and Firefox as a fallback otherwise.
+x-scheme-handler/http=undrabyte-brave.desktop
+x-scheme-handler/https=undrabyte-brave.desktop
+x-scheme-handler/about=undrabyte-brave.desktop
+x-scheme-handler/unknown=undrabyte-brave.desktop
+text/html=undrabyte-brave.desktop
+application/xhtml+xml=undrabyte-brave.desktop
+
+[Added Associations]
+x-scheme-handler/http=undrabyte-brave.desktop;brave-browser.desktop;firefox.desktop;
+x-scheme-handler/https=undrabyte-brave.desktop;brave-browser.desktop;firefox.desktop;
+text/html=undrabyte-brave.desktop;brave-browser.desktop;firefox.desktop;

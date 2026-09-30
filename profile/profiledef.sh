@@ -78,5 +78,7 @@ file_permissions=(
   ["/usr/local/bin/undrabyte-record"]="0:0:755"
   ["/usr/local/bin/undrabyte-vpn"]="0:0:755"
   ["/usr/local/bin/undrabyte-anon"]="0:0:755"
+  ["/usr/local/bin/undrabyte-brave"]="0:0:755"
   ["/usr/lib/undrabyte/live-setup.sh"]="0:0:755"
+  ["/usr/lib/undrabyte/install-brave.sh"]="0:0:755"
 )
