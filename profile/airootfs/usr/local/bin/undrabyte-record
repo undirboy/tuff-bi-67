@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+#
+# undrabyte-record - one-command screen recording.
+#
+# OBS Studio is installed for serious work, but sometimes you just want to
+# hit record. This captures the whole screen to an MP4 in ~/Videos with a
+# single command (or the Super+Print keybinding), and stops the same way.
+#
+#   undrabyte-record            toggle: start if idle, stop if recording
+#   undrabyte-record start      start recording
+#   undrabyte-record stop       stop and save
+#   undrabyte-record status     is it recording? where to?
+#
+# Set UNDRABYTE_REC_AUDIO=1 to also capture the default audio output.
+
+set -uo pipefail
+
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/undrabyte"
+PID_FILE="$STATE_DIR/record.pid"
+OUT_FILE_MARK="$STATE_DIR/record.out"
+OUTDIR="${HOME}/Videos"
+
+have() { command -v "$1" >/dev/null 2>&1; }
+die()  { printf 'undrabyte-record: %s\n' "$*" >&2; exit 1; }
+
+notify() {
+    if have notify-send; then
+        notify-send -a "Screen recording" -t 3000 "Screen recording" "$1" 2>/dev/null || true
+    fi
+    printf '%s\n' "$1"
+}
+
+is_recording() {
+    [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null
+}
+
+start_rec() {
+    is_recording && { printf 'Already recording to %s\n' "$(cat "$OUT_FILE_MARK" 2>/dev/null)"; return 0; }
+    have ffmpeg || die "ffmpeg is not installed (sudo pacman -S ffmpeg)."
+    [ -n "${DISPLAY:-}" ] || die "no X display found - run this inside the desktop session."
+
+    mkdir -p "$OUTDIR" "$STATE_DIR"
+    local out; out="$OUTDIR/undrabyte-$(date +%Y%m%d-%H%M%S).mp4"
+
+    # Screen geometry from the X server, so we grab exactly one screen.
+    local geom="1920x1080"
+    if have xdpyinfo; then
+        geom="$(xdpyinfo 2>/dev/null | awk '/dimensions:/{print $2; exit}')"
+        [ -n "$geom" ] || geom="1920x1080"
+    fi
+
+    local -a audio=()
+    if [ "${UNDRABYTE_REC_AUDIO:-0}" = "1" ] && have pactl; then
+        # Record the monitor of the default sink (what you hear).
+        local mon; mon="$(pactl get-default-sink 2>/dev/null).monitor"
+        audio=(-f pulse -i "$mon")
+    fi
+
+    # -draw_mouse 1 keeps the cursor; veryfast/CRF 23 is a good size/speed mix.
+    ffmpeg -nostdin -loglevel error -y \
+        -f x11grab -framerate 30 -draw_mouse 1 -video_size "$geom" -i "${DISPLAY}" \
+        "${audio[@]}" \
+        -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p \
+        "$out" >/dev/null 2>&1 &
+    local pid=$!
+    printf '%s\n' "$pid" > "$PID_FILE"
+    printf '%s\n' "$out"  > "$OUT_FILE_MARK"
+    sleep 1
+    is_recording || { rm -f "$PID_FILE" "$OUT_FILE_MARK"; die "ffmpeg failed to start (screen capture not available?)."; }
+    notify "Recording started → $(basename "$out")"
+}
+
+stop_rec() {
+    if ! is_recording; then
+        rm -f "$PID_FILE" "$OUT_FILE_MARK"
+        printf 'Not recording.\n'; return 0
+    fi
+    local pid out; pid="$(cat "$PID_FILE")"; out="$(cat "$OUT_FILE_MARK" 2>/dev/null)"
+    # 'q' would be cleaner but we detached stdin; SIGINT lets ffmpeg finalise
+    # the MP4 (moov atom) so the file is playable.
+    kill -INT "$pid" 2>/dev/null || true
+    for _ in 1 2 3 4 5; do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+    if kill -0 "$pid" 2>/dev/null; then kill -TERM "$pid" 2>/dev/null || true; fi
+    rm -f "$PID_FILE" "$OUT_FILE_MARK"
+    notify "Saved → ${out:-(unknown)}"
+}
+
+case "${1:-toggle}" in
+    start)  start_rec ;;
+    stop)   stop_rec ;;
+    toggle) if is_recording; then stop_rec; else start_rec; fi ;;
+    status)
+        if is_recording; then printf 'Recording → %s\n' "$(cat "$OUT_FILE_MARK" 2>/dev/null)"
+        else printf 'Not recording. Videos are saved to %s\n' "$OUTDIR"; fi ;;
+    -h|--help) sed -n '3,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+    *) die "unknown command '$1' (try: start, stop, toggle, status)" ;;
+esac

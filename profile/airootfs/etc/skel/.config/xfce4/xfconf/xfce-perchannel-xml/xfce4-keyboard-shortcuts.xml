@@ -15,6 +15,7 @@
       <property name="Print" type="string" value="xfce4-screenshooter"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;s" type="string" value="xfce4-screenshooter -r"/>
       <property name="&lt;Super&gt;n" type="string" value="undrabyte-nightlight toggle"/>
+      <property name="&lt;Super&gt;Print" type="string" value="undrabyte-record toggle"/>
     </property>
   </property>
   <property name="xfwm4" type="empty">

@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+#
+# undrabyte-vpn - connect an OpenVPN profile without fighting the config.
+#
+# Point it at a .ovpn file your provider gave you; it runs OpenVPN in the
+# background, keeps the log where you can read it, and tears the tunnel down
+# cleanly on 'down'. Nothing here touches your provider's config - it just
+# drives the openvpn client that ships on the image.
+#
+#   undrabyte-vpn up <profile.ovpn>   bring the tunnel up (backgrounded)
+#   undrabyte-vpn down                tear the tunnel down
+#   undrabyte-vpn status              connected? what's the public IP?
+#   undrabyte-vpn log                 tail the OpenVPN log
+#
+# WireGuard users: `wg-quick up <conf>` is simpler and already installed.
+
+set -uo pipefail
+
+RUN_DIR="/run/undrabyte-vpn"
+PID_FILE="$RUN_DIR/openvpn.pid"
+LOG_FILE="$RUN_DIR/openvpn.log"
+
+have() { command -v "$1" >/dev/null 2>&1; }
+die()  { printf 'undrabyte-vpn: %s\n' "$*" >&2; exit 1; }
+need_root() { [ "$(id -u)" -eq 0 ] || die "run as root (sudo undrabyte-vpn $*)"; }
+
+is_up() { [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null; }
+
+vpn_up() {
+    need_root "up $*"
+    local profile="${1:-}"
+    [ -n "$profile" ] || die "usage: undrabyte-vpn up <profile.ovpn>"
+    [ -r "$profile" ] || die "cannot read profile: $profile"
+    have openvpn || die "openvpn is not installed (sudo pacman -S openvpn)."
+    is_up && die "a tunnel is already up (undrabyte-vpn down first)."
+
+    mkdir -p "$RUN_DIR"
+    : > "$LOG_FILE"
+    # --daemon backgrounds it; we also keep a pidfile of our own to manage it.
+    openvpn --config "$profile" \
+            --log "$LOG_FILE" \
+            --writepid "$PID_FILE" \
+            --daemon undrabyte-vpn \
+        || die "openvpn failed to launch (see: undrabyte-vpn log)."
+
+    printf 'Connecting'
+    local _i
+    for _i in $(seq 1 20); do
+        if grep -q "Initialization Sequence Completed" "$LOG_FILE" 2>/dev/null; then
+            printf '\nConnected.\n'; vpn_status; return 0
+        fi
+        printf '.'; sleep 1
+    done
+    printf '\n'
+    die "did not connect within 20s - check: undrabyte-vpn log"
+}
+
+vpn_down() {
+    need_root "down"
+    if ! is_up; then printf 'No tunnel is up.\n'; rm -f "$PID_FILE"; return 0; fi
+    kill "$(cat "$PID_FILE")" 2>/dev/null || true
+    sleep 1
+    rm -f "$PID_FILE"
+    printf 'Tunnel down.\n'
+}
+
+vpn_status() {
+    if is_up; then
+        printf 'VPN: UP (pid %s)\n' "$(cat "$PID_FILE")"
+    else
+        printf 'VPN: down\n'
+    fi
+    if have curl; then
+        local ip; ip="$(curl -fsS --max-time 6 https://api.ipify.org 2>/dev/null || true)"
+        [ -n "$ip" ] && printf 'Public IP: %s\n' "$ip"
+    fi
+    have ip && ip -brief addr show type tun 2>/dev/null | sed 's/^/tun: /'
+    return 0
+}
+
+case "${1:-status}" in
+    up)     shift; vpn_up "$@" ;;
+    down)   vpn_down ;;
+    status) vpn_status ;;
+    log)    if [ -r "$LOG_FILE" ]; then tail -n 40 -f "$LOG_FILE"; else die "no log yet - bring a tunnel up first."; fi ;;
+    -h|--help) sed -n '3,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+    *) die "unknown command '$1' (try: up <profile>, down, status, log)" ;;
+esac

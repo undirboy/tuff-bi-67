@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+#
+# undrabyte-anon - quick privacy switches for your own machine.
+#
+# Two common things, made one command each: randomise your network card's MAC
+# address, and turn the Tor service on or off. Use this on hardware and
+# networks you own or are authorised to test.
+#
+#   undrabyte-anon status                what's my MAC, is Tor up, public IP
+#   undrabyte-anon mac [iface]           give <iface> a random MAC (default: auto)
+#   undrabyte-anon mac-restore [iface]   put the permanent MAC back
+#   undrabyte-anon tor on|off            start/stop the Tor service
+#   undrabyte-anon check                 is my traffic going through Tor?
+#
+# Randomising a MAC briefly drops the link; NetworkManager reconnects after.
+
+set -uo pipefail
+
+have() { command -v "$1" >/dev/null 2>&1; }
+die()  { printf 'undrabyte-anon: %s\n' "$*" >&2; exit 1; }
+need_root() { [ "$(id -u)" -eq 0 ] || die "run as root (sudo undrabyte-anon $*)"; }
+
+# First non-loopback interface that is actually up.
+auto_iface() {
+    have ip || return 1
+    ip -brief link show 2>/dev/null \
+        | awk '$1!="lo" && $2=="UP"{print $1; exit}'
+}
+
+cmd_mac() {
+    need_root "mac $*"
+    have macchanger || die "macchanger is not installed (sudo pacman -S macchanger)."
+    local iface="${1:-$(auto_iface)}"
+    [ -n "$iface" ] || die "could not auto-detect an interface; pass one, e.g. undrabyte-anon mac wlan0"
+    printf 'Randomising MAC on %s ...\n' "$iface"
+    ip link set "$iface" down
+    macchanger -r "$iface" | sed 's/^/  /'
+    ip link set "$iface" up
+    printf 'Done. NetworkManager will reconnect in a moment.\n'
+}
+
+cmd_mac_restore() {
+    need_root "mac-restore $*"
+    have macchanger || die "macchanger is not installed."
+    local iface="${1:-$(auto_iface)}"
+    [ -n "$iface" ] || die "pass an interface, e.g. undrabyte-anon mac-restore wlan0"
+    ip link set "$iface" down
+    macchanger -p "$iface" | sed 's/^/  /'
+    ip link set "$iface" up
+    printf 'Permanent MAC restored on %s.\n' "$iface"
+}
+
+cmd_tor() {
+    need_root "tor $*"
+    have systemctl || die "systemd is required to manage the Tor service."
+    case "${1:-}" in
+        on|start)  systemctl start tor.service  && printf 'Tor service started.\n' ;;
+        off|stop)  systemctl stop  tor.service  && printf 'Tor service stopped.\n' ;;
+        *) die "usage: undrabyte-anon tor on|off" ;;
+    esac
+}
+
+cmd_check() {
+    have curl || die "curl is required for the Tor check."
+    if have torsocks; then
+        printf 'Through Tor:  '
+        torsocks curl -fsS --max-time 12 https://check.torproject.org/api/ip 2>/dev/null \
+            | (have jq && jq -r '"IsTor=\(.IsTor)  IP=\(.IP)"' || cat) || printf '(could not reach Tor)\n'
+    fi
+    printf 'Direct:       '
+    curl -fsS --max-time 8 https://api.ipify.org 2>/dev/null || printf '(offline?)'
+    printf '\n'
+}
+
+cmd_status() {
+    local iface; iface="$(auto_iface || true)"
+    printf 'interface:   %s\n' "${iface:-none up}"
+    if [ -n "${iface:-}" ] && have ip; then
+        printf 'current MAC: %s\n' "$(ip link show "$iface" | awk '/link\//{print $2; exit}')"
+    fi
+    if have systemctl; then
+        printf 'tor service: %s\n' "$(systemctl is-active tor.service 2>/dev/null || echo unknown)"
+    fi
+    if have curl; then
+        local ip; ip="$(curl -fsS --max-time 6 https://api.ipify.org 2>/dev/null || true)"
+        printf 'public IP:   %s\n' "${ip:-unknown}"
+    fi
+}
+
+case "${1:-status}" in
+    status)      cmd_status ;;
+    mac)         shift; cmd_mac "$@" ;;
+    mac-restore) shift; cmd_mac_restore "$@" ;;
+    tor)         shift; cmd_tor "$@" ;;
+    check)       cmd_check ;;
+    -h|--help)   sed -n '3,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+    *) die "unknown command '$1' (try: status, mac, mac-restore, tor, check)" ;;
+esac

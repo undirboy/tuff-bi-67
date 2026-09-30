@@ -75,5 +75,8 @@ file_permissions=(
   ["/usr/local/bin/undrabyte-lab"]="0:0:755"
   ["/usr/local/bin/undrabyte-ai"]="0:0:755"
   ["/usr/local/bin/undrabyte-nightlight"]="0:0:755"
+  ["/usr/local/bin/undrabyte-record"]="0:0:755"
+  ["/usr/local/bin/undrabyte-vpn"]="0:0:755"
+  ["/usr/local/bin/undrabyte-anon"]="0:0:755"
   ["/usr/lib/undrabyte/live-setup.sh"]="0:0:755"
 )

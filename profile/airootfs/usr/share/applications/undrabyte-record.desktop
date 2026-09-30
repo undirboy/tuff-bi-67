@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Screen Recording (toggle)
+GenericName=Screen recorder
+Comment=Record the whole screen to an MP4 in ~/Videos - toggle on or off (also Super+Print)
+Exec=undrabyte-record toggle
+Icon=media-record
+Terminal=false
+Categories=AudioVideo;Utility;
+Keywords=record;screen;capture;video;screencast;obs;ffmpeg;
