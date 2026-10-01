@@ -44,12 +44,15 @@ read_temp() {
 }
 
 is_on() {
-    [ -f "$STATE_FILE" ] && pgrep -x redshift >/dev/null 2>&1
+    # redshift -O applies the gamma ramps and exits (no resident process), so
+    # the state file - not a running process - is the source of truth. It lives
+    # in XDG_RUNTIME_DIR, which is cleared on logout, so state resets per
+    # session, matching the gamma which also resets when the X session ends.
+    [ -f "$STATE_FILE" ]
 }
 
 turn_off() {
-    pkill -x redshift 2>/dev/null || true
-    # -x with a neutral one-shot resets the gamma ramps redshift left behind.
+    # redshift -x resets the gamma ramps to neutral (undoes the warming).
     if have redshift; then redshift -x >/dev/null 2>&1 || true; fi
     rm -f "$STATE_FILE"
     notify "Off - screen back to normal colour."
@@ -58,11 +61,11 @@ turn_off() {
 turn_on() {
     have redshift || die "redshift is not installed (sudo pacman -S redshift)."
     local temp; temp="$(read_temp)"
-    # A running instance would fight us; clear it first, then set a constant
-    # temperature (-O = one-shot-ish continual mode, no geoclue/location needed).
-    pkill -x redshift 2>/dev/null || true
+    # -O = one-shot manual: set a constant colour temperature and exit (no
+    # geoclue/location, no daemon). -P resets existing ramps first so repeated
+    # calls don't stack. The gamma it sets persists until 'off' or logout.
     redshift -P -O "$temp" >/dev/null 2>&1 \
-        || die "could not start redshift (is an X session running?)."
+        || die "could not apply the warm tint (is an X session running?)."
     mkdir -p "$STATE_DIR"
     printf '%s\n' "$temp" > "$STATE_FILE"
     notify "On - screen warmed to ${temp}K."

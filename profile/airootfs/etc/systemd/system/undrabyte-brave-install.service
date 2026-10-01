@@ -3,6 +3,13 @@ Description=Install Brave (primary browser) from the AUR on first boot
 Documentation=https://github.com/undirboy/tuff-bi-67/blob/main/docs/ARCHITECTURE.md
 # Only when Brave is not already installed.
 ConditionPathExists=!/usr/bin/brave
+# Live medium only. The live session grants wheel passwordless sudo, which is
+# what lets paru install brave-bin unattended here. An installed system has a
+# normal (password) sudo, so an unattended paru run can't work - there, Brave
+# installs interactively on first launch via undrabyte-brave instead. Without
+# this gate the service would wastefully rebuild paru and fail every boot on
+# an installed system.
+ConditionPathExists=/run/archiso
 # Run after the network is up and after the live user has been created, but
 # deliberately NOT Before=display-manager.service: this must never delay or
 # block the desktop. If it fails or the machine is offline, Firefox is used.
