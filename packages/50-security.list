@@ -1,0 +1,71 @@
+# Security tooling available from the official Arch repositories.
+# The long tail (thousands of tools) comes from BlackArch: build with
+# `--with-blackarch`, or run `undrabyte-toolkit install <category>` later.
+
+# recon & scanning
+nmap
+masscan
+arp-scan
+whois
+gobuster
+# ffuf and feroxbuster are AUR-only: undrabyte-toolkit aur ffuf feroxbuster
+dnsmasq
+
+# traffic analysis
+wireshark-qt
+wireshark-cli
+tcpdump
+tcpreplay
+mitmproxy
+bettercap
+ettercap
+socat
+openbsd-netcat
+rlwrap
+sshuttle
+
+# wireless
+aircrack-ng
+hcxtools
+hcxdumptool
+kismet
+hostapd
+macchanger
+
+# web & exploitation
+sqlmap
+metasploit
+exploitdb
+impacket
+
+# password & hashes
+hashcat
+hashcat-utils
+john
+hydra
+
+# reverse engineering & forensics
+radare2
+rizin
+# Cutter (the rizin GUI) is AUR-only; Ghidra below covers the graphical case
+ghidra
+binwalk
+sleuthkit
+yara
+
+# defence & hardening
+clamav
+lynis
+nftables
+usbguard
+
+# anonymity & tunnelling
+proxychains-ng
+tor
+torsocks
+openvpn
+openconnect
+wireguard-tools
+
+# scripting
+python-scapy

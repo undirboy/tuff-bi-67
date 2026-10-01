@@ -1,0 +1,256 @@
+#!/usr/bin/env bash
+#
+# One command that makes the whole desktop dark (or light), instead of six
+# different settings dialogues.
+#
+# It covers GTK3, GTK4/libadwaita, Qt/KDE, XFCE's xsettings, the icon theme,
+# the cursor and the console palette - because a half-themed desktop, where
+# GTK apps are dark and Qt apps are blinding white, is worse than either.
+#
+#   undrabyte-theme            show what is set
+#   undrabyte-theme dark       go dark (the UndraByte default)
+#   undrabyte-theme light      go light
+#   undrabyte-theme toggle     swap
+#   undrabyte-theme --system   also write it into /etc/skel for new users (root)
+
+set -euo pipefail
+
+BOLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
+GRN=$'\033[32m'; RED=$'\033[31m'
+
+readonly GTK_DARK=Breeze-Dark
+readonly GTK_LIGHT=Breeze
+readonly GTK_FALLBACK_DARK=Adwaita-dark
+readonly GTK_FALLBACK_LIGHT=Adwaita
+readonly ICONS_DARK=breeze-dark
+readonly ICONS_LIGHT=breeze
+readonly CURSOR=breeze_cursors
+
+SYSTEM=0
+MODE=""
+
+# Who we are theming for: the human behind sudo, else whoever is running us.
+WHO="${SUDO_USER:-${USER:-$(id -un)}}"
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+step() { printf '    %s%s%s\n' "$DIM" "$*" "$RST"; }
+
+have() { command -v "$1" &>/dev/null; }
+
+# A theme that is not installed looks worse than no theme at all, so check.
+gtk_theme_for() {
+    local mode=$1 want fallback
+    if [[ $mode == dark ]]; then want=$GTK_DARK; fallback=$GTK_FALLBACK_DARK
+    else                          want=$GTK_LIGHT; fallback=$GTK_FALLBACK_LIGHT; fi
+    local d
+    for d in "$HOME/.themes/$want" /usr/share/themes/"$want"; do
+        [[ -d $d ]] && { printf '%s\n' "$want"; return; }
+    done
+    printf '%s\n' "$fallback"
+}
+
+target_home() {
+    # When invoked through sudo, theme the human's session, not root's.
+    if [[ -n ${SUDO_USER:-} && $SUDO_USER != root ]]; then
+        getent passwd "$SUDO_USER" | cut -d: -f6
+    else
+        printf '%s\n' "$HOME"
+    fi
+}
+
+apply_gtk() {
+    local mode=$1 home=$2 theme prefer
+    theme="$(gtk_theme_for "$mode")"
+    [[ $mode == dark ]] && prefer=1 || prefer=0
+    local icons; [[ $mode == dark ]] && icons=$ICONS_DARK || icons=$ICONS_LIGHT
+
+    local cfg
+    for cfg in "$home/.config/gtk-3.0/settings.ini" "$home/.config/gtk-4.0/settings.ini"; do
+        install -Dm0644 /dev/stdin "$cfg" <<-EOF
+		[Settings]
+		gtk-theme-name=$theme
+		gtk-icon-theme-name=$icons
+		gtk-cursor-theme-name=$CURSOR
+		gtk-font-name=Noto Sans 10
+		gtk-application-prefer-dark-theme=$prefer
+		gtk-enable-animations=true
+		EOF
+    done
+    step "GTK 3 and 4: $theme / $icons"
+
+    # libadwaita apps ignore the theme name and read this instead. Only touch
+    # gsettings when a D-Bus session bus is actually present: with no bus (e.g.
+    # when the first-boot setup runs this before any desktop session exists),
+    # `gsettings set` can block trying to autolaunch one, which would stall boot.
+    # The shipped /etc/skel configs already set the theme for the first session.
+    if have gsettings && [[ -n ${DBUS_SESSION_BUS_ADDRESS:-} ]]; then
+        local scheme
+        if [[ $mode == dark ]]; then scheme="prefer-dark"; else scheme="prefer-light"; fi
+        gsettings set org.gnome.desktop.interface color-scheme "$scheme" 2>/dev/null || true
+        gsettings set org.gnome.desktop.interface gtk-theme "$theme" 2>/dev/null || true
+        gsettings set org.gnome.desktop.interface icon-theme "$icons" 2>/dev/null || true
+        step "libadwaita colour-scheme: $scheme"
+    fi
+}
+
+apply_qt() {
+    local mode=$1 home=$2 scheme
+    [[ $mode == dark ]] && scheme=BreezeDark || scheme=BreezeLight
+
+    if have plasma-apply-colorscheme; then
+        if plasma-apply-colorscheme "$scheme" &>/dev/null; then
+            step "Plasma colour scheme: $scheme"
+        fi
+    fi
+    if have plasma-apply-desktoptheme; then
+        plasma-apply-desktoptheme "$( [[ $mode == dark ]] && echo breeze-dark || echo default )" &>/dev/null || true
+    fi
+
+    # Written directly too, so it survives a session that is not running yet
+    # (first boot, or applying the theme from a TTY before the desktop starts).
+    local kdeglobals="$home/.config/kdeglobals"
+    if [[ -w $kdeglobals || ! -e $kdeglobals ]]; then
+        install -Dm0644 /dev/stdin "$kdeglobals" <<-EOF
+		[General]
+		ColorScheme=$scheme
+		widgetStyle=Breeze
+
+		[Icons]
+		Theme=$( [[ $mode == dark ]] && echo "$ICONS_DARK" || echo "$ICONS_LIGHT" )
+
+		[KDE]
+		LookAndFeelPackage=org.kde.breeze$( [[ $mode == dark ]] && echo dark ).desktop
+		SingleClick=false
+		EOF
+        step "kdeglobals: $scheme"
+    fi
+
+    # Qt apps outside Plasma (on XFCE) need telling which platform theme to
+    # use - but naming one that is not installed leaves them unstyled, so
+    # only write what this system can actually load.
+    local platform=""
+    if have qt6ct || have qt5ct; then
+        platform=qt5ct
+        have qt6ct && platform=qt6ct
+    elif compgen -G '/usr/lib/qt*/plugins/platformthemes/libqgtk3.so' >/dev/null; then
+        platform=gtk3
+    fi
+    if [[ -n $platform ]]; then
+        install -Dm0644 /dev/stdin "$home/.config/environment.d/95-undrabyte-qt.conf" <<-EOF
+		# Set by undrabyte-theme: make Qt applications follow the desktop theme.
+		QT_QPA_PLATFORMTHEME=$platform
+		EOF
+        step "Qt platform theme: $platform"
+    else
+        step "Qt apps follow kdeglobals (no platform theme plugin installed)"
+    fi
+}
+
+apply_xfce() {
+    local mode=$1 theme icons
+    have xfconf-query || return 0
+    pgrep -x xfconfd &>/dev/null || return 0
+    theme="$(gtk_theme_for "$mode")"
+    [[ $mode == dark ]] && icons=$ICONS_DARK || icons=$ICONS_LIGHT
+
+    xfconf-query -c xsettings -p /Net/ThemeName     -s "$theme"  2>/dev/null || true
+    xfconf-query -c xsettings -p /Net/IconThemeName -s "$icons"  2>/dev/null || true
+    xfconf-query -c xsettings -p /Gtk/CursorThemeName -s "$CURSOR" 2>/dev/null || true
+    xfconf-query -c xfwm4     -p /general/theme     -s "$theme"  2>/dev/null || true
+    step "XFCE xsettings: $theme"
+}
+
+apply_console() {
+    local mode=$1 home=$2
+    # The TTY palette matters on a headless image, where it is the only UI.
+    [[ $mode == dark ]] || return 0
+    install -Dm0644 /dev/stdin "$home/.config/undrabyte/console-colors" <<-'EOF'
+	# Sourced by the UndraByte shell config; a legible 16-colour dark palette.
+	UNDRABYTE_ANSI_BG=0d1117
+	UNDRABYTE_ANSI_FG=c9d1d9
+	UNDRABYTE_ANSI_ACCENT=1793d1
+	EOF
+}
+
+write_marker() {
+    local mode=$1 home=$2
+    install -Dm0644 /dev/stdin "$home/.config/undrabyte/theme" <<<"$mode"
+    if (( SYSTEM )); then
+        [[ $EUID -eq 0 ]] || die "--system needs root"
+        install -Dm0644 /dev/stdin /etc/undrabyte/theme <<<"$mode"
+        # Seed /etc/skel so accounts created later start the same way.
+        local f
+        for f in .config/gtk-3.0/settings.ini .config/gtk-4.0/settings.ini \
+                 .config/kdeglobals .config/undrabyte/theme; do
+            [[ -e "$home/$f" ]] && install -Dm0644 "$home/$f" "/etc/skel/$f"
+        done
+        step "seeded /etc/skel for new accounts"
+    fi
+}
+
+current_mode() {
+    local home; home="$(target_home)"
+    if [[ -r "$home/.config/undrabyte/theme" ]]; then
+        cat "$home/.config/undrabyte/theme"
+    elif [[ -r /etc/undrabyte/theme ]]; then
+        cat /etc/undrabyte/theme
+    else
+        echo dark
+    fi
+}
+
+cmd_status() {
+    local home; home="$(target_home)"
+    printf '%sUndraByte theme%s\n\n' "$BOLD" "$RST"
+    printf '  %-20s %s%s%s\n' "mode" "$GRN" "$(current_mode)" "$RST"
+    printf '  %-20s %s\n' "GTK theme" "$(gtk_theme_for "$(current_mode)")"
+    printf '  %-20s %s\n' "for user" "$WHO"
+    if have gsettings; then
+        printf '  %-20s %s\n' "libadwaita scheme" \
+            "$(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | tr -d "'" || echo n/a)"
+    fi
+    printf '\n%sChange it with:%s undrabyte-theme dark  |  light  |  toggle\n' "$DIM" "$RST"
+}
+
+cmd_apply() {
+    local mode=$1 home
+    home="$(target_home)"
+    info "applying the $mode theme for $WHO"
+
+    apply_gtk     "$mode" "$home"
+    apply_qt      "$mode" "$home"
+    apply_xfce    "$mode"
+    apply_console "$mode" "$home"
+    write_marker  "$mode" "$home"
+
+    # Everything above was written as whoever ran the command; if that was
+    # root via sudo, hand the files back.
+    if [[ -n ${SUDO_USER:-} && $SUDO_USER != root && $EUID -eq 0 ]]; then
+        chown -R "$SUDO_USER" "$home/.config/gtk-3.0" "$home/.config/gtk-4.0" \
+            "$home/.config/undrabyte" "$home/.config/environment.d" 2>/dev/null || true
+        [[ -e "$home/.config/kdeglobals" ]] && chown "$SUDO_USER" "$home/.config/kdeglobals"
+    fi
+
+    printf '\n%s%s theme applied.%s Already-running applications may need a restart.\n' \
+        "$GRN" "${mode^}" "$RST"
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        dark|light)  MODE=$1; shift ;;
+        toggle)      MODE=toggle; shift ;;
+        status)      MODE=status; shift ;;
+        --system)    SYSTEM=1; shift ;;
+        -h|--help)   sed -n '3,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *)           die "unknown argument: $1" ;;
+    esac
+done
+
+case ${MODE:-status} in
+    status) cmd_status ;;
+    toggle)
+        if [[ $(current_mode) == dark ]]; then cmd_apply light; else cmd_apply dark; fi ;;
+    dark)   cmd_apply dark ;;
+    light)  cmd_apply light ;;
+esac

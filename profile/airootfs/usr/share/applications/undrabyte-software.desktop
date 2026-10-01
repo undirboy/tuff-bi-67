@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Software
+GenericName=App installer
+Comment=Install apps with a click - browsers, media, office, graphics and more
+Exec=undrabyte-software
+Icon=system-software-install
+Terminal=false
+Categories=System;PackageManager;Settings;
+Keywords=software;install;apps;store;packages;add;remove;

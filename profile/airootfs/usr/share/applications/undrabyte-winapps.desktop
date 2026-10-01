@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Run a Windows Program
+GenericName=Windows apps (Wine)
+Comment=Run Windows .exe and .msi programs with Wine, installed on demand
+Exec=undrabyte-winapps %f
+Icon=wine
+Terminal=false
+Categories=System;Utility;
+Keywords=windows;exe;msi;wine;lindows;run;program;
+MimeType=application/x-ms-dos-executable;application/x-msi;application/x-msdownload;

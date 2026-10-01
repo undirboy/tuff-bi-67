@@ -1,0 +1,20 @@
+# Fonts, media and desktop odds and ends.
+
+ttf-dejavu
+ttf-liberation
+noto-fonts
+noto-fonts-emoji
+ttf-jetbrains-mono-nerd
+ttf-nerd-fonts-symbols
+
+firefox
+chromium
+keepassxc
+vlc
+obs-studio
+ffmpeg          # powers undrabyte-record (one-command screen capture)
+xorg-xdpyinfo   # undrabyte-record reads the screen size from here
+gimp
+flameshot
+remmina
+freerdp

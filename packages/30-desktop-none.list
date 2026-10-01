@@ -1,0 +1,2 @@
+# Headless edition: TTY only. Useful for CI runners and lab boxes.
+# (intentionally empty besides a console multiplexer already in 00-base)

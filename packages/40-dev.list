@@ -1,0 +1,79 @@
+# Coding environment.
+
+base-devel
+git
+git-lfs
+github-cli
+lazygit
+cmake
+meson
+ninja
+clang
+llvm
+lld
+gdb
+strace
+ltrace
+valgrind
+perf
+
+# languages & runtimes
+python
+python-pip
+python-pipx
+python-virtualenv
+python-requests
+python-poetry          # modern Python dependency/venv manager
+nodejs
+npm
+deno                   # secure TypeScript/JavaScript runtime
+go
+rustup
+jdk-openjdk
+lua
+ruby
+php
+sqlite
+
+# editors
+neovim
+code
+
+# CLI quality of life
+bat
+btop
+direnv
+eza
+fd
+fzf
+git-delta
+jq
+yq
+just
+ncdu
+ripgrep
+starship
+tree
+unzip
+7zip
+wget
+curl
+aria2
+tealdeer
+pacman-contrib
+httpie                 # friendly command-line HTTP client for APIs
+hyperfine              # command-line benchmarking
+tokei                  # count lines of code by language
+shellcheck             # shell script linter
+shfmt                  # shell script formatter
+
+# containers & nested virtualisation
+docker
+docker-compose
+docker-buildx
+podman
+qemu-full
+libvirt
+virt-manager
+dnsmasq
+edk2-ovmf

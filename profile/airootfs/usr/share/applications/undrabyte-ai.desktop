@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=AI Helper
+GenericName=Ask Claude
+Comment=Ask Claude for a shell command or an explanation, in the terminal
+Exec=undrabyte-ai
+Icon=system-help
+Terminal=true
+Categories=Development;Utility;
+Keywords=ai;claude;assistant;help;chat;llm;command;

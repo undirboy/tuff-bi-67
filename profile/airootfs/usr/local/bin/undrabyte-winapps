@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+#
+# undrabyte-winapps - run Windows programs, the Lindows way.
+#
+# Wine is not baked into the image (it is large and pulls in the 32-bit
+# multilib stack), so the first run offers to install it. After that, launch
+# any .exe or .msi by double-clicking it in the file manager or from here.
+#
+#   undrabyte-winapps                 pick a Windows program and run it
+#   undrabyte-winapps program.exe     run that program (installs Wine if needed)
+
+set -uo pipefail
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+TITLE="Run a Windows program"
+
+# GUI helpers, with terminal fallbacks so this still works over SSH.
+ask() {   # yes/no question -> return 0 for yes
+    if have yad; then yad --question --title="$TITLE" --width=420 --text="$1" 2>/dev/null
+    else read -r -p "$1 [y/N] " a; [[ ${a,,} == y* ]]; fi
+}
+info() {
+    if have yad; then yad --info --title="$TITLE" --width=420 --text="$1" --button=OK:0 2>/dev/null
+    else printf '%s\n' "$1"; fi
+}
+
+pick_terminal() {
+    local hold="$1; echo; read -r -p 'Press Enter to close ' _"
+    if   have xfce4-terminal; then xfce4-terminal --title="$TITLE" -e "bash -lc \"$hold\""
+    elif have konsole;        then konsole -e bash -lc "$hold"
+    elif have xterm;          then xterm -T "$TITLE" -e bash -lc "$hold"
+    else bash -lc "$1"; fi
+}
+
+install_wine() {
+    info "Wine needs to be installed first (it lets Linux run Windows programs).\n\nThis downloads a few hundred MB and enables the 32-bit 'multilib' repository. A terminal will open so you can watch progress and enter your password if asked."
+    # Enable [multilib] if it is still commented out; harmless if already on.
+    local enable_multilib='if ! pacman-conf --repo-list 2>/dev/null | grep -qx multilib; then
+        echo "Enabling the multilib repository..."
+        sudo sed -i "/^#\\[multilib\\]/,/^#Include/ s/^#//" /etc/pacman.conf
+    fi'
+    pick_terminal "set -e
+$enable_multilib
+sudo pacman -Sy --needed --noconfirm wine wine-mono wine-gecko winetricks
+echo
+echo 'Wine is ready. You can now run Windows .exe programs.'"
+}
+
+ensure_wine() {
+    if have wine; then return 0; fi
+    if ask "Wine is not installed yet. Install it now so you can run Windows programs?"; then
+        install_wine
+        have wine
+    else
+        return 1
+    fi
+}
+
+pick_program() {
+    if have yad; then
+        yad --file --title="$TITLE" --width=720 --height=500 \
+            --file-filter='Windows programs | *.exe *.msi *.EXE *.MSI' \
+            --file-filter='All files | *' 2>/dev/null
+    else
+        read -r -p "Path to the .exe/.msi: " p; printf '%s\n' "$p"
+    fi
+}
+
+run_program() {
+    local prog=$1
+    [[ -f $prog ]] || { info "That file was not found:\n$prog"; return 1; }
+    case ${prog,,} in
+        *.msi) ( cd "$(dirname -- "$prog")" && wine msiexec /i "$prog" ) ;;
+        *)     ( cd "$(dirname -- "$prog")" && wine "$prog" ) ;;
+    esac
+}
+
+main() {
+    local prog=${1-}
+
+    if ! have wine; then
+        ensure_wine || { info "No problem - Wine was not installed, so nothing was run."; exit 0; }
+        # If the install ran in a separate terminal, wine may not be on PATH in
+        # this shell yet. Re-check; if still missing, the user can retry.
+        have wine || { info "Once Wine finishes installing, run this again to launch your program."; exit 0; }
+    fi
+
+    [[ -z $prog ]] && prog="$(pick_program)"
+    [[ -z $prog ]] && exit 0
+    run_program "$prog"
+}
+
+main "$@"

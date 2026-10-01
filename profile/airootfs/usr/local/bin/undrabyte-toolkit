@@ -1,0 +1,182 @@
+#!/usr/bin/env bash
+#
+# Add tooling that is deliberately not baked into the ISO: the BlackArch
+# repository (thousands of packages, several GB) and AUR builds (which cannot
+# be produced reproducibly inside the image build).
+
+set -euo pipefail
+
+readonly SHARE=/usr/local/share/undrabyte
+readonly AUR_LIST="$SHARE/packages/aur-optional.list"
+readonly BLACKARCH_STRAP=https://blackarch.org/strap.sh
+# BlackArch publishes the SHA1 of strap.sh on https://blackarch.org/downloads.html
+# and rotates the file periodically, so no checksum is hardcoded here. Put the
+# value you read off that page into this file to make the check automatic.
+readonly BLACKARCH_STRAP_SHA1_FILE=/etc/undrabyte/blackarch-strap.sha1
+
+BOLD=$'\033[1m'; RST=$'\033[0m'; DIM=$'\033[2m'
+
+die()  { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+
+need_root() { [[ $EUID -eq 0 ]] || die "run this as root (sudo undrabyte-toolkit $*)"; }
+
+usage() {
+    cat <<EOF
+${BOLD}undrabyte-toolkit${RST} - manage optional UndraByte tooling
+
+  ${BOLD}status${RST}                 what is enabled on this system
+  ${BOLD}groups${RST}                 list the BlackArch tool groups
+  ${BOLD}enable-blackarch${RST}       add the BlackArch repo and its signing keyring
+  ${BOLD}install <group...>${RST}     install BlackArch groups, e.g. 'install recon webapp'
+  ${BOLD}aur${RST} [pkg...]           bootstrap paru and install the curated AUR list
+  ${BOLD}update${RST}                 full system update (pacman -Syu, then paru if present)
+
+${DIM}BlackArch groups are large. 'recon' alone is ~1.5 GB; installing every
+group is over 20 GB. Check free space first.${RST}
+EOF
+}
+
+blackarch_enabled() {
+    grep -qE '^\s*\[blackarch\]' /etc/pacman.conf
+}
+
+cmd_status() {
+    printf '%sUndraByte toolkit status%s\n\n' "$BOLD" "$RST"
+    printf '  %-22s %s\n' "multilib (32-bit)" \
+        "$(grep -qE '^\s*\[multilib\]' /etc/pacman.conf && echo enabled || echo disabled)"
+    printf '  %-22s %s\n' "blackarch repo" \
+        "$(blackarch_enabled && echo enabled || echo 'disabled (run: enable-blackarch)')"
+    printf '  %-22s %s\n' "AUR helper" \
+        "$(command -v paru &>/dev/null && paru --version | head -1 || echo 'not installed (run: aur)')"
+    printf '  %-22s %s\n' "installed packages" "$(pacman -Qq | wc -l)"
+    printf '  %-22s %s\n' "free space on /" "$(df -h --output=avail / | tail -1 | tr -d ' ')"
+}
+
+cmd_groups() {
+    cat <<'EOF'
+BlackArch groups (install with: undrabyte-toolkit install <group>)
+
+  recon          host/network/service discovery and OSINT
+  scanner        vulnerability scanners
+  webapp         web application testing
+  exploitation   exploit frameworks and payloads
+  fuzzer         fuzzing harnesses
+  cracker        password and hash cracking
+  wireless       802.11, bluetooth, SDR
+  forensic       disk, memory and artefact analysis
+  reversing      disassemblers, decompilers, debuggers
+  networking     capture, replay, manipulation
+  crypto         cryptography and crypto attacks
+  defensive      hardening, detection, monitoring
+  malware        malware analysis (sandboxed hosts only)
+  mobile         Android/iOS tooling
+  automation     orchestration for the above
+
+Full catalogue: https://blackarch.org/tools.html
+EOF
+}
+
+cmd_enable_blackarch() {
+    need_root enable-blackarch
+    if blackarch_enabled; then
+        info "blackarch repo already enabled"
+        return 0
+    fi
+    local tmp
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' RETURN
+
+    info "fetching BlackArch bootstrap script"
+    curl -fsSL "$BLACKARCH_STRAP" -o "$tmp/strap.sh"
+
+    local got expected=""
+    got="$(sha1sum "$tmp/strap.sh" | cut -d' ' -f1)"
+    [[ -r $BLACKARCH_STRAP_SHA1_FILE ]] && expected="$(tr -d '[:space:]' < "$BLACKARCH_STRAP_SHA1_FILE")"
+
+    if [[ -n $expected ]]; then
+        [[ $got == "$expected" ]] || die "strap.sh SHA1 mismatch (expected $expected, got $got)"
+        info "strap.sh checksum verified against $BLACKARCH_STRAP_SHA1_FILE"
+    else
+        printf '\nThis will run a script downloaded from blackarch.org as root.\n'
+        printf '  SHA1 of what was just downloaded: %s\n' "$got"
+        printf '  Compare it with the value published on https://blackarch.org/downloads.html\n'
+        printf '  (save it to %s to skip this prompt next time).\n\n' "$BLACKARCH_STRAP_SHA1_FILE"
+        read -rp 'Checksums match - continue? [y/N] ' reply
+        [[ ${reply,,} == y ]] || die "aborted"
+    fi
+
+    chmod +x "$tmp/strap.sh"
+    info "running BlackArch strap (installs keyring + mirrorlist)"
+    "$tmp/strap.sh"
+    pacman -Sy
+    info "blackarch enabled - try: undrabyte-toolkit install recon"
+}
+
+cmd_install() {
+    need_root install
+    [[ $# -gt 0 ]] || die "name at least one group (see: undrabyte-toolkit groups)"
+    blackarch_enabled || die "run 'undrabyte-toolkit enable-blackarch' first"
+    local groups=()
+    local g
+    for g in "$@"; do
+        groups+=("blackarch-${g#blackarch-}")
+    done
+    info "installing: ${groups[*]}"
+    pacman -S --needed "${groups[@]}"
+}
+
+bootstrap_paru() {
+    command -v paru &>/dev/null && return 0
+    info "bootstrapping paru (AUR helper)"
+    local builder=${SUDO_USER:-}
+    [[ -n $builder && $builder != root ]] || \
+        die "AUR packages must be built by a non-root user; run this with sudo from your normal account"
+    pacman -S --needed --noconfirm base-devel git
+    local tmp
+    tmp="$(sudo -u "$builder" mktemp -d)"
+    sudo -u "$builder" git clone --depth 1 https://aur.archlinux.org/paru-bin.git "$tmp/paru-bin"
+    ( cd "$tmp/paru-bin" && sudo -u "$builder" makepkg -si --noconfirm )
+    rm -rf "$tmp"
+}
+
+cmd_aur() {
+    need_root aur
+    bootstrap_paru
+    local builder=${SUDO_USER:?}
+    local pkgs=()
+    if [[ $# -gt 0 ]]; then
+        pkgs=("$@")
+    elif [[ -r $AUR_LIST ]]; then
+        mapfile -t pkgs < <(grep -vE '^\s*(#|$)' "$AUR_LIST")
+    else
+        die "no packages given and $AUR_LIST is missing"
+    fi
+    info "building ${#pkgs[@]} AUR package(s) as $builder - this takes a while"
+    sudo -u "$builder" paru -S --needed "${pkgs[@]}"
+}
+
+cmd_update() {
+    need_root update
+    pacman -Syu
+    if command -v paru &>/dev/null && [[ -n ${SUDO_USER:-} && $SUDO_USER != root ]]; then
+        sudo -u "$SUDO_USER" paru -Sua
+    fi
+}
+
+main() {
+    local cmd=${1-help}
+    [[ $# -gt 0 ]] && shift
+    case "$cmd" in
+        status)            cmd_status "$@" ;;
+        groups)            cmd_groups "$@" ;;
+        enable-blackarch)  cmd_enable_blackarch "$@" ;;
+        install)           cmd_install "$@" ;;
+        aur)               cmd_aur "$@" ;;
+        update)            cmd_update "$@" ;;
+        help|-h|--help)    usage ;;
+        *)                 usage; die "unknown command: $cmd" ;;
+    esac
+}
+
+main "$@"
