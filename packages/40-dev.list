@@ -91,7 +91,7 @@ dotnet-sdk                        # C# / F# / .NET
 elixir                            # pulls in Erlang/OTP
 r                                 # statistics & data analysis
 julia                             # scientific/numeric computing
-python-ipython                    # a much nicer Python REPL
+ipython                           # a much nicer Python REPL
 
 # JVM build tools
 maven
