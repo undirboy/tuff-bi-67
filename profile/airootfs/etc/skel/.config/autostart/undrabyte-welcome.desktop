@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=UndraByte Welcome
-Comment=A short tour on first login
-Exec=sh -c 'command -v xfce4-terminal >/dev/null && xfce4-terminal --title="Welcome to UndraByte" -e undrabyte-welcome'
+Name=UndraByte Setup
+Comment=Friendly first-run setup (theme, keyboard, Wi-Fi) - runs once
+Exec=undrabyte-setup
 Icon=applications-system
 Terminal=false
 X-XFCE-Autostart-enabled=true

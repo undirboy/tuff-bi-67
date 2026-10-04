@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Share a File
+GenericName=Share over Wi-Fi
+Comment=Share a file or folder to your phone over the network, with a QR code
+Exec=undrabyte-share %f
+Icon=document-send
+Terminal=true
+Categories=Network;Utility;X-UndraByte;
+Keywords=share;file;send;phone;http;qr;transfer;

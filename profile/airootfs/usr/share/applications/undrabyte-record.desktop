@@ -6,5 +6,5 @@ Comment=Record the whole screen to an MP4 in ~/Videos - toggle on or off (also S
 Exec=undrabyte-record toggle
 Icon=media-record
 Terminal=false
-Categories=AudioVideo;Utility;
+Categories=AudioVideo;Utility;X-UndraByte;
 Keywords=record;screen;capture;video;screencast;obs;ffmpeg;

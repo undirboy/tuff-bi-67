@@ -6,5 +6,5 @@ Comment=Install apps with a click - browsers, media, office, graphics and more
 Exec=undrabyte-software
 Icon=system-software-install
 Terminal=false
-Categories=System;PackageManager;Settings;
+Categories=System;PackageManager;Settings;X-UndraByte;
 Keywords=software;install;apps;store;packages;add;remove;

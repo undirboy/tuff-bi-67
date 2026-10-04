@@ -5,5 +5,5 @@ Comment=Capture and crack a WPA handshake from an access point you own
 Exec=sh -c 'undrabyte-wifi; echo; read -p "Press Enter to close " _'
 Icon=network-wireless
 Terminal=true
-Categories=System;Network;
+Categories=System;Network;X-UndraByte;
 Keywords=wifi;wpa;handshake;aircrack;wireless;

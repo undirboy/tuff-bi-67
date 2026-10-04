@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Password Generator
+GenericName=Strong passwords
+Comment=Generate a strong random password or an easy-to-type passphrase
+Exec=undrabyte-passgen
+Icon=dialog-password
+Terminal=true
+Categories=Utility;Security;X-UndraByte;
+Keywords=password;passphrase;random;generate;secret;

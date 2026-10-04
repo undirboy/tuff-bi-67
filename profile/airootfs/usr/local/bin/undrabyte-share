@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#
+# undrabyte-share - share a file or folder over your LAN via a quick web link.
+#
+# Starts a tiny web server on this machine and prints a URL (and a QR code you
+# can scan from your phone) to download what you shared. Ctrl-C stops it.
+#
+#   undrabyte-share <file-or-folder> [port]
+#
+# Anyone on the same network who has the link can download it while the server
+# runs, so only share on a network you trust, and stop it when you're done.
+
+set -uo pipefail
+
+have() { command -v "$1" >/dev/null 2>&1; }
+die()  { printf 'undrabyte-share: %s\n' "$*" >&2; exit 1; }
+
+target="${1:-}"
+port="${2:-8000}"
+[ -n "$target" ] || die "usage: undrabyte-share <file-or-folder> [port]"
+[ -e "$target" ] || die "no such file or folder: $target"
+have python3 || die "python3 is required."
+[[ "$port" =~ ^[0-9]+$ ]] || die "port must be a number."
+
+# LAN IP (the interface with the default route).
+ip_addr="$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')"
+[ -n "$ip_addr" ] || ip_addr="$(hostname -I 2>/dev/null | awk '{print $1}')"
+[ -n "$ip_addr" ] || ip_addr="127.0.0.1"
+
+# Serve the containing directory; if a single file, link straight to it.
+serve_dir="$target"; path=""
+if [ -f "$target" ]; then
+    serve_dir="$(dirname -- "$target")"
+    path="$(basename -- "$target")"
+fi
+
+url="http://$ip_addr:$port/$path"
+
+printf '\n\033[1mSharing:\033[0m %s\n' "$target"
+printf '\033[1mOpen on another device:\033[0m \033[38;5;38m%s\033[0m\n\n' "$url"
+if have qrencode; then
+    qrencode -t ANSIUTF8 "$url"
+    printf '\nScan the code above with your phone camera.\n'
+else
+    printf '(install qrencode for a scannable QR code: sudo pacman -S qrencode)\n'
+fi
+printf '\nPress Ctrl-C to stop sharing.\n\n'
+
+# -d serves a directory; bind to all interfaces so other devices can reach it.
+cd -- "$serve_dir" || die "could not enter $serve_dir"
+exec python3 -m http.server "$port" --bind 0.0.0.0

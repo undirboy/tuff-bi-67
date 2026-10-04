@@ -5,5 +5,5 @@ Comment=Switch the whole desktop between dark and light
 Exec=undrabyte-theme toggle
 Icon=preferences-desktop-theme
 Terminal=true
-Categories=Settings;DesktopSettings;
+Categories=Settings;DesktopSettings;X-UndraByte;
 Keywords=dark;light;theme;appearance;

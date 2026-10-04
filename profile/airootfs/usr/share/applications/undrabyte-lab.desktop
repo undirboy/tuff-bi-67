@@ -5,5 +5,5 @@ Comment=Start deliberately vulnerable targets to practise on, in Docker
 Exec=sh -c 'undrabyte-lab list; echo; read -p "Press Enter to close " _'
 Icon=applications-development
 Terminal=true
-Categories=System;Security;
+Categories=System;Security;X-UndraByte;
 Keywords=lab;dvwa;juiceshop;practice;hacking;

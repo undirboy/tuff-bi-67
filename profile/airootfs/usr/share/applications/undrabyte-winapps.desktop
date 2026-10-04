@@ -6,6 +6,6 @@ Comment=Run Windows .exe and .msi programs with Wine, installed on demand
 Exec=undrabyte-winapps %f
 Icon=wine
 Terminal=false
-Categories=System;Utility;
+Categories=System;Utility;X-UndraByte;
 Keywords=windows;exe;msi;wine;lindows;run;program;
 MimeType=application/x-ms-dos-executable;application/x-msi;application/x-msdownload;

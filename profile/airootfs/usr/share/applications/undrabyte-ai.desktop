@@ -6,5 +6,5 @@ Comment=Ask Claude for a shell command or an explanation, in the terminal
 Exec=undrabyte-ai
 Icon=system-help
 Terminal=true
-Categories=Development;Utility;
+Categories=Development;Utility;X-UndraByte;
 Keywords=ai;claude;assistant;help;chat;llm;command;

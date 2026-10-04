@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+#
+# undrabyte-setup - a friendly first-run wizard (graphical).
+#
+# Runs once on first login: pick a theme, set the keyboard layout, connect
+# Wi-Fi, optionally set a password, and point at the on-desktop cheat-sheet.
+# It is intentionally skippable at every step - nothing here is required.
+#
+#   undrabyte-setup            run the wizard
+#   undrabyte-setup --force    run it again even if already completed
+
+set -uo pipefail
+
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/undrabyte"
+STAMP="$CONF_DIR/.setup-done"
+TITLE="UndraByte Setup"
+ICON=applications-system
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# No desktop? Fall back to the terminal tour and leave.
+[ -n "${DISPLAY:-}" ] || { have undrabyte-welcome && exec undrabyte-welcome; exit 0; }
+
+# Need yad for the GUI; without it, hand off to the terminal welcome.
+if ! have yad; then
+    have undrabyte-welcome && exec undrabyte-welcome
+    exit 0
+fi
+
+[ "${1:-}" = "--force" ] && rm -f "$STAMP"
+[ -f "$STAMP" ] && exit 0   # already set up
+
+yad_ok() { yad --title="$TITLE" --window-icon="$ICON" --center "$@"; }
+
+# 1. Welcome
+yad_ok --image="$ICON" --width=460 --borders=14 \
+    --text="<b>Welcome to UndraByte</b>\n\nA quick, skippable setup. You can change any of this later from Settings or the <tt>undrabyte</tt> menu." \
+    --button="Skip all:1" --button="Let's go!:0" || { mkdir -p "$CONF_DIR"; : > "$STAMP"; exit 0; }
+
+# 2. Theme
+theme="$(yad_ok --list --radiolist --width=380 --height=220 --borders=10 \
+    --text="Choose a look:" --column="Pick":CHK --column="Theme" --column="id":HD \
+    TRUE "Dark (default)" dark FALSE "Light" light \
+    --button="Keep current:1" --button="Apply:0" --print-column=3 --hide-column=3 2>/dev/null | cut -d'|' -f1)" || theme=""
+case "$theme" in
+    dark|light) have undrabyte-theme && undrabyte-theme "$theme" >/dev/null 2>&1 || true ;;
+esac
+
+# 3. Keyboard layout
+layout="$(yad_ok --list --radiolist --width=380 --height=320 --borders=10 \
+    --text="Keyboard layout:" --column="Pick":CHK --column="Layout" --column="code":HD \
+    TRUE "US English" us \
+    FALSE "UK English" gb \
+    FALSE "German" de \
+    FALSE "French" fr \
+    FALSE "Spanish" es \
+    FALSE "Italian" it \
+    FALSE "Portuguese" pt \
+    --button="Skip:1" --button="Set:0" --print-column=3 --hide-column=3 2>/dev/null | cut -d'|' -f1)" || layout=""
+if [ -n "$layout" ] && have setxkbmap; then
+    setxkbmap "$layout" >/dev/null 2>&1 || true
+    mkdir -p "$CONF_DIR"; printf '%s\n' "$layout" > "$CONF_DIR/keyboard"
+fi
+
+# 4. Wi-Fi / network
+if yad_ok --image=network-wireless --width=420 --borders=12 \
+    --text="<b>Connect to the internet?</b>\n\nOpen network settings to join a Wi-Fi network. Skip if you're already online or on a cable." \
+    --button="Skip:1" --button="Open network settings:0"; then
+    if   have nm-connection-editor; then setsid nm-connection-editor >/dev/null 2>&1 &
+    elif have nmtui && have xfce4-terminal; then setsid xfce4-terminal -e "nmtui" >/dev/null 2>&1 &
+    fi
+fi
+
+# 5. Optional password for this account
+if yad_ok --image=dialog-password --width=420 --borders=12 \
+    --text="<b>Set a password?</b>\n\nThe live account's password is <tt>forge</tt>. Set your own if you like (optional)." \
+    --button="Leave it:1" --button="Set a password:0"; then
+    pw="$(yad_ok --form --width=360 --borders=12 --text="New password:" \
+        --field="Password:H" --field="Repeat:H" 2>/dev/null)"
+    p1="$(printf '%s' "$pw" | cut -d'|' -f1)"; p2="$(printf '%s' "$pw" | cut -d'|' -f2)"
+    if [ -n "$p1" ] && [ "$p1" = "$p2" ]; then
+        if printf '%s:%s\n' "$USER" "$p1" | sudo -n chpasswd 2>/dev/null; then
+            yad_ok --info --width=320 --text="Password updated." --button=OK:0 &
+        else
+            yad_ok --error --width=340 --text="Could not set the password (needs sudo)." --button=OK:0 &
+        fi
+    elif [ -n "$p1" ]; then
+        yad_ok --error --width=320 --text="The passwords didn't match - left unchanged." --button=OK:0 &
+    fi
+fi
+
+# 6. Finish - mark setup complete so it never runs again automatically.
+mkdir -p "$CONF_DIR"; : > "${STAMP:?}"
+if yad_ok --image=emblem-default --width=460 --borders=14 \
+    --text="<b>All set!</b>\n\nYour commands &amp; shortcuts are on the desktop (<tt>UndraByte-Commands</tt>).\nOpen the <tt>undrabyte</tt> menu any time for every tool.\n\nShow the quick command tour now?" \
+    --button="No thanks:1" --button="Show the tour:0"; then
+    if have xfce4-terminal && have undrabyte-welcome; then
+        setsid xfce4-terminal --title="Welcome to UndraByte" -e undrabyte-welcome >/dev/null 2>&1 &
+    fi
+fi
+exit 0

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Network Info
+GenericName=Network overview
+Comment=Your IPs, gateway, DNS, public IP, open ports - and scan your own LAN
+Exec=undrabyte-net
+Icon=network-workgroup
+Terminal=true
+Categories=Network;System;X-UndraByte;
+Keywords=network;ip;ports;scan;lan;dns;gateway;

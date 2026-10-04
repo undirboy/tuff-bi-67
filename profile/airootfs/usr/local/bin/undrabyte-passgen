@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+#
+# undrabyte-passgen - generate strong passwords or passphrases.
+#
+#   undrabyte-passgen                 a 20-character random password
+#   undrabyte-passgen -n 32           a 32-character password
+#   undrabyte-passgen -w 5            a 5-word passphrase (easier to type)
+#   undrabyte-passgen -c              also copy it to the clipboard
+#
+# Randomness comes from the kernel CSPRNG (/dev/urandom), the same source a
+# password manager uses.
+
+set -uo pipefail
+
+have() { command -v "$1" >/dev/null 2>&1; }
+die()  { printf 'undrabyte-passgen: %s\n' "$*" >&2; exit 1; }
+
+length=20
+words=0
+copy=0
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -n|--length) length="${2:?}"; shift 2 ;;
+        -w|--words)  words="${2:?}";  shift 2 ;;
+        -c|--copy)   copy=1; shift ;;
+        -h|--help)   sed -n '3,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) die "unknown option: $1" ;;
+    esac
+done
+
+gen_password() {
+    local n="$1"
+    [[ "$n" =~ ^[0-9]+$ ]] && (( n >= 8 && n <= 256 )) || die "length must be 8-256."
+    # A-Z a-z 0-9 and a handful of safe symbols.
+    LC_ALL=C tr -dc 'A-Za-z0-9!@#$%^&*()-_=+' < /dev/urandom | head -c "$n"
+    echo
+}
+
+gen_passphrase() {
+    local w="$1" dict=/usr/share/dict/words
+    [[ "$w" =~ ^[0-9]+$ ]] && (( w >= 3 && w <= 12 )) || die "words must be 3-12."
+    if [ -r "$dict" ]; then
+        # Lowercase a-z words, 3-8 letters, joined by dashes, with a number.
+        local picked
+        picked="$(grep -E '^[a-z]{3,8}$' "$dict" | shuf -n "$w" | paste -sd- -)"
+        printf '%s-%02d\n' "$picked" "$(( RANDOM % 100 ))"
+    else
+        # No wordlist installed - fall back to a readable grouped random string.
+        local raw; raw="$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c $((w*4)))"
+        echo "$raw" | sed 's/.\{4\}/&-/g; s/-$//'
+    fi
+}
+
+if (( words > 0 )); then
+    out="$(gen_passphrase "$words")"
+else
+    out="$(gen_password "$length")"
+fi
+
+printf '%s\n' "$out"
+
+if (( copy )); then
+    if have wl-copy; then printf '%s' "$out" | wl-copy && echo "(copied to clipboard)"
+    elif have xclip; then printf '%s' "$out" | xclip -selection clipboard && echo "(copied to clipboard)"
+    elif have xsel; then printf '%s' "$out" | xsel --clipboard && echo "(copied to clipboard)"
+    else echo "(no clipboard tool found; install xclip)" >&2; fi
+fi

@@ -75,6 +75,8 @@ run|aircrack-ng|802.11 analysis and cracking|aircrack-ng
 run|WiFi handshake (your own AP)|Guided WPA capture and crack, for a network you own|undrabyte-wifi
 run|VPN (OpenVPN)|Bring an .ovpn tunnel up or down|undrabyte-vpn status
 run|Anonymity switches|Randomise your MAC, toggle Tor, check your IP|undrabyte-anon status
+run|Network info & scan|Your IPs, open ports, and a scan of your own LAN|undrabyte-net
+run|Password generator|Strong passwords and passphrases|undrabyte-passgen
 run|radare2|Reverse engineering framework|r2
 gui|Ghidra|Decompiler and disassembler|ghidra
 run|searchsploit|Search the Exploit-DB archive|searchsploit

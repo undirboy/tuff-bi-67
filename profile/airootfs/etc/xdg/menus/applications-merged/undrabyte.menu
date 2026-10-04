@@ -1,0 +1,16 @@
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN" "http://www.freedesktop.org/standards/menu-spec/menu-1.0.dtd">
+<!--
+  Group every UndraByte tool under one "UndraByte" submenu in the application
+  menu (Whisker, KDE Kickoff, etc.). Each undrabyte-*.desktop file carries the
+  X-UndraByte category; this merge file turns that category into a visible menu.
+-->
+<Menu>
+  <Name>Applications</Name>
+  <Menu>
+    <Name>UndraByte</Name>
+    <Directory>undrabyte.directory</Directory>
+    <Include>
+      <Category>X-UndraByte</Category>
+    </Include>
+  </Menu>
+</Menu>
