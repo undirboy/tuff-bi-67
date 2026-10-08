@@ -185,7 +185,15 @@ you.
 add yourself to the `kvm` group; in a nested setup, enable nested
 virtualisation on the outer hypervisor.
 
-**Boot stops at `ERROR: device 'UNDRABYTE_...' not found`** — the ISO was
-copied wrong, or the virtual optical drive disconnected. Re-attach the ISO;
-if you wrote it to USB, use `dd`/`cp` rather than a file copy onto a
-filesystem.
+**Boot stops at `ERROR: device 'UNDRABYTE_...' not found`, or drops to a
+recovery/emergency shell right after the boot menu** — the initramfs could not
+find the live medium. Every boot entry now also carries
+`archisosearchfilename=`, so the initramfs scans *all* block devices for the
+squashfs instead of trusting the ISO9660 label alone — this is what makes it
+boot on VirtualBox and flaky UTM/QEMU setups where the label lookup fails. If
+you still hit this on an older build or a genuinely absent medium: re-attach the
+ISO to the optical drive, and if you wrote it to USB use `dd`/`cp` (a plain file
+copy onto a filesystem is not bootable). On **VirtualBox specifically**, if the
+UEFI/EFI firmware refuses to start the boot loader at all, turn **EFI off**
+(System → Motherboard) to boot via BIOS/syslinux instead — both paths carry the
+same fix.
