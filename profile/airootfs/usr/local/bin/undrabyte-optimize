@@ -121,8 +121,30 @@ vm.vfs_cache_pressure = $cache_pressure
 vm.dirty_ratio = 10
 vm.dirty_background_ratio = 5
 
+# zram is RAM, not a disk: swapping in one page costs a decompression, so the
+# default read-ahead (page-cluster=3 => 8 pages per fault) decompresses seven
+# pages nothing asked for. Zero read-ahead is the documented zram setting and
+# is what makes swap-to-zram feel free on a small box.
+vm.page-cluster = 0
+
 # Desktop responsiveness under load.
 kernel.sched_autogroup_enabled = 1
+
+# A desktop/VM does not need hard-lockup detection; dropping the per-CPU NMI
+# watchdog frees a timer on every core and a little power on the laptop.
+kernel.nmi_watchdog = 0
+
+# The default 65530 mmap limit is exhausted by modern games under Proton/DXVK
+# and by Chromium/Electron apps (VS Code, the AUR helper's web views), which
+# then crash with "Out of memory" that is really "out of mappings". This is the
+# value Steam's own platform and Fedora ship.
+vm.max_map_count = 1048576
+
+# BBR + fq: fuller use of the link and lower latency under load than the old
+# loss-based control. Both ship in the mainline Arch kernel; if a kernel ever
+# lacks them, sysctl simply warns and the rest still applies.
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
 
 # Plenty of inotify watches: editors, file managers and IDEs all want them.
 fs.inotify.max_user_watches = 524288
@@ -186,6 +208,10 @@ EOF
 LP_NUM_THREADS=$(nproc)
 # Skip driver-side error checking that buys nothing on a virtual adapter.
 MESA_NO_ERROR=1
+# Do not block the software renderer waiting for a vblank it has to fake
+# anyway: without this, llvmpipe throttles to the virtual refresh and the
+# desktop feels laggy; with it, frames land as fast as the CPU can draw them.
+vblank_mode=0
 EOF
 
     info "services the host already handles"
@@ -196,6 +222,12 @@ EOF
     disable_unit smartd.service
     disable_unit lvm2-monitor.service
     disable_unit NetworkManager-wait-online.service
+
+    info "hardware a virtual machine does not have"
+    # No guest exposes a real Bluetooth radio or a cellular modem; these daemons
+    # only sit there polling. (Both are no-ops if the package is not installed.)
+    disable_unit bluetooth.service
+    disable_unit ModemManager.service
 
     info "services the guest does want"
     enable_unit fstrim.timer          # discard propagates to the host image
@@ -269,6 +301,12 @@ trim_desktop() {
     disable_unit man-db.timer
     disable_unit updatedb.timer
     disable_unit plocate-updatedb.timer
+
+    # No machine this profile targets (a VM, or a small laptop like the dual-core
+    # MacBook Air) has a cellular modem, so ModemManager is pure idle cost.
+    # Bluetooth is deliberately NOT touched here: on bare metal it is a real
+    # radio the user wants - only the VM profile drops it.
+    disable_unit ModemManager.service
 }
 
 # ------------------------------------------------------------- commands --
