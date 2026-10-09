@@ -8,6 +8,7 @@ alias ..='cd ..'
 command -v eza  &>/dev/null && alias ls='eza --icons --group-directories-first'
 command -v bat  &>/dev/null && alias cat='bat --paging=never'
 command -v btop &>/dev/null && alias top='btop'
+command -v fastfetch &>/dev/null && alias sysinfo='fastfetch'
 
 export EDITOR=nvim
 export VISUAL=nvim

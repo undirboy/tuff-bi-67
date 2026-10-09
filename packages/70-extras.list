@@ -18,3 +18,7 @@ gimp
 flameshot
 remmina
 freerdp
+
+# Flatpak + Flathub for apps that are not in the Arch repos. The Flathub
+# remote is added on first boot by undrabyte-flathub.service (online-gated).
+flatpak

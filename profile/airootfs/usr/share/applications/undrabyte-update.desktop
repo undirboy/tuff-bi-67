@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Update System (safe)
+GenericName=Software updates
+Comment=Refresh the keyring and mirrors, then upgrade everything (and the AUR)
+Exec=sudo undrabyte-update
+Icon=system-software-update
+Terminal=true
+Categories=System;Settings;X-UndraByte;
+Keywords=update;upgrade;pacman;keyring;mirrors;reflector;aur;

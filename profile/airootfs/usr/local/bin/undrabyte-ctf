@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+#
+# Scaffold a tidy CTF / reverse-engineering workspace, and (optionally) pull in
+# the graphical and scripting tools the repos do not carry.
+#
+# For authorised, educational use - CTF competitions, your own targets, and
+# practice labs (see undrabyte-lab). Not for touching systems you do not own.
+#
+#   undrabyte-ctf new <name>     create ~/ctf/<name> with a layout + notes + venv
+#   undrabyte-ctf list           list your workspaces
+#   undrabyte-ctf tools          install the AUR RE/CTF kit (pwndbg, gef, ...)
+#   undrabyte-ctf status         what is installed
+#
+# Ships already (official repos): gdb, radare2, rizin, binwalk, ghidra,
+# metasploit, exploitdb/searchsploit, yara, sleuthkit, nmap, python-scapy.
+
+set -euo pipefail
+
+BOLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; CYN=$'\033[36m'
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+ok()   { printf '%s  ok%s %s\n' "$GRN" "$RST" "$*"; }
+warn() { printf '%swarning:%s %s\n' "$YEL" "$RST" "$*" >&2; }
+
+usage() { sed -n '3,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
+ROOT="${UNDRABYTE_CTF_DIR:-$HOME/ctf}"
+
+# The AUR tools worth having for binary/exploitation work. These are in
+# packages/aur-optional.list; undrabyte-toolkit builds them with paru.
+AUR_KIT=(pwndbg gef python-pwntools rizin-cutter volatility3)
+
+cmd_new() {
+    local name=${1:-}
+    [[ -n $name ]] || die "name the challenge: undrabyte-ctf new <name>"
+    [[ $name =~ ^[A-Za-z0-9._-]+$ ]] || die "use letters, digits, dot, dash or underscore in the name"
+    local dir="$ROOT/$name"
+    [[ -e $dir ]] && die "$dir already exists"
+
+    info "creating $dir"
+    mkdir -p "$dir"/{bin,src,exploits,loot,notes}
+
+    cat > "$dir/notes/README.md" <<EOF
+# $name
+
+- **Category:**
+- **Target / files:**
+- **Points:**
+
+## Recon
+\`\`\`
+file ./bin/*        # what am I looking at
+checksec --file=    # (pwntools) mitigations
+strings -n 8 ./bin/*
+\`\`\`
+
+## Working notes
+
+## Flag
+\`\`\`
+\`\`\`
+EOF
+
+    cat > "$dir/exploits/exploit.py" <<'EOF'
+#!/usr/bin/env python3
+# Template exploit. Needs pwntools:  undrabyte-ctf tools
+try:
+    from pwn import *
+except ImportError:
+    raise SystemExit("pwntools not installed - run: undrabyte-ctf tools")
+
+context.log_level = "info"
+# context.binary = ELF("../bin/challenge")
+
+# io = process(context.binary.path)
+# io = remote("host", 1337)
+# io.sendline(b"payload")
+# io.interactive()
+EOF
+    chmod +x "$dir/exploits/exploit.py"
+
+    # A per-challenge Python venv keeps pip installs out of the system.
+    if command -v python &>/dev/null; then
+        info "creating a Python venv (.venv)"
+        if python -m venv "$dir/.venv" 2>/dev/null; then
+            ok "venv ready - activate with: source $dir/.venv/bin/activate"
+        else
+            warn "could not create the venv (python-virtualenv missing?)"
+        fi
+    fi
+
+    ok "workspace ready: $dir"
+    printf '\n%scd %s%s\n' "$CYN" "$dir" "$RST"
+}
+
+cmd_list() {
+    [[ -d $ROOT ]] || { info "no workspaces yet - create one: undrabyte-ctf new <name>"; return 0; }
+    info "workspaces in $ROOT"
+    find "$ROOT" -mindepth 1 -maxdepth 1 -type d -printf '  %f\n' | sort
+}
+
+cmd_tools() {
+    info "the CTF/RE kit from the official repositories is already installed:"
+    local t
+    for t in gdb radare2 rizin binwalk ghidra yara searchsploit msfconsole; do
+        if command -v "$t" &>/dev/null; then
+            printf '    %s%s%s %s\n' "$GRN" "ok " "$RST" "$t"
+        else
+            printf '    %s-- %s %s (pacman -S ...)\n' "$DIM" "$RST" "$t"
+        fi
+    done
+    printf '\nThe extra tools below come from the AUR and are built on demand:\n'
+    printf '  %s%s%s\n' "$CYN" "${AUR_KIT[*]}" "$RST"
+    printf '\nInstall them now? [y/N] '
+    local reply; read -r reply
+    [[ $reply == [yY]* ]] || { info "skipped - build later with: sudo undrabyte-toolkit aur ${AUR_KIT[*]}"; return 0; }
+    command -v undrabyte-toolkit &>/dev/null || die "undrabyte-toolkit not found"
+    exec sudo undrabyte-toolkit aur "${AUR_KIT[@]}"
+}
+
+cmd_status() {
+    printf '%sCTF / reverse-engineering kit%s\n\n' "$BOLD" "$RST"
+    printf '  %-16s %s\n' "workspaces" "${ROOT}$( [[ -d $ROOT ]] && printf ' (%s)' "$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l)" )"
+    local t
+    printf '\n  %srepo tools%s\n' "$DIM" "$RST"
+    for t in gdb radare2 rizin binwalk ghidra yara searchsploit msfconsole; do
+        command -v "$t" &>/dev/null && printf '    %sok%s %s\n' "$GRN" "$RST" "$t" || printf '    %s--%s %s\n' "$YEL" "$RST" "$t"
+    done
+    printf '\n  %sAUR kit%s (undrabyte-ctf tools)\n' "$DIM" "$RST"
+    for t in pwndbg gef pwn cutter vol; do
+        command -v "$t" &>/dev/null && printf '    %sok%s %s\n' "$GRN" "$RST" "$t" || printf '    %s--%s %s\n' "$YEL" "$RST" "$t"
+    done
+}
+
+case ${1:-status} in
+    new)         shift; cmd_new "$@" ;;
+    list|ls)     cmd_list ;;
+    tools)       cmd_tools ;;
+    status)      cmd_status ;;
+    -h|--help)   usage ;;
+    *)           usage >&2; die "unknown command: $1" ;;
+esac

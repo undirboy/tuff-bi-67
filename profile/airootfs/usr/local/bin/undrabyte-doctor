@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+#
+# A plain-language health check for UndraByte: is the system tuned, online,
+# accelerated, and healthy? Each line is PASS / WARN / FAIL with the fix.
+#
+# This is the "why does it feel slow / why is there no internet" button for
+# someone who does not live in a terminal. undrabyte-vmcheck goes deep on the
+# graphics/VM side; this is the whole-system overview.
+#
+#   undrabyte-doctor            run every check
+#
+# Read-only: it changes nothing.
+
+set -uo pipefail   # not -e: a failing probe must not abort the whole report
+
+BOLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'
+
+fails=0 warns=0
+pass() { printf '  %s[PASS]%s %-22s %s\n' "$GRN" "$RST" "$1" "${2:-}"; }
+warn() { printf '  %s[WARN]%s %-22s %s\n' "$YEL" "$RST" "$1" "${2:-}"; ((warns++)); }
+fail() { printf '  %s[FAIL]%s %-22s %s\n' "$RED" "$RST" "$1" "${2:-}"; ((fails++)); }
+section() { printf '\n%s%s%s\n' "$BOLD" "$1" "$RST"; }
+
+virt="$(systemd-detect-virt 2>/dev/null || echo none)"
+cores="$(nproc 2>/dev/null || echo '?')"
+ram_gb="$(awk '/MemTotal/{printf "%d", $2/1048576}' /proc/meminfo 2>/dev/null || echo '?')"
+
+printf '%sUndraByte health check%s   %s\n' "$BOLD" "$RST" "$(date '+%Y-%m-%d %H:%M')"
+printf '%s%s, %s cores, %s GB RAM, kernel %s%s\n' \
+    "$DIM" "$( [[ $virt == none ]] && echo 'bare metal' || echo "VM ($virt)")" \
+    "$cores" "$ram_gb" "$(uname -r)" "$RST"
+
+# ---- tuning ---------------------------------------------------------------
+section "Performance tuning"
+state=/var/lib/undrabyte/optimize.state
+if [[ -r $state ]]; then
+    pass "optimiser" "applied: $(grep -m1 '^profile:' "$state" | cut -d: -f2- || echo yes)"
+else
+    warn "optimiser" "not applied yet - run: sudo undrabyte-optimize apply"
+fi
+if awk '{print $1}' /proc/swaps 2>/dev/null | grep -q '/dev/zram'; then
+    pass "zram swap" "active ($(awk '/zram/{printf "%d MB", $3/1024}' /proc/swaps | head -1))"
+elif [[ -e /dev/zram0 ]]; then
+    warn "zram swap" "present but not swapped on - reboot, or: sudo systemctl restart systemd-zram-setup@zram0"
+else
+    warn "zram swap" "not active (zram-generator config takes effect at boot)"
+fi
+
+# ---- graphics -------------------------------------------------------------
+section "Graphics"
+if command -v glxinfo &>/dev/null; then
+    r="$(glxinfo -B 2>/dev/null | sed -n 's/.*OpenGL renderer string: //p' | head -1)"
+    if [[ -z $r ]]; then
+        warn "renderer" "could not query (no X session?)"
+    elif [[ $r == *llvmpipe* || $r == *softpipe* ]]; then
+        warn "renderer" "$r - software rendering (no GPU accel). See docs/RUNNING-VMS.md."
+    else
+        pass "renderer" "$r"
+    fi
+else
+    printf '  %s[ -- ]%s %-22s %s\n' "$DIM" "$RST" "renderer" "glxinfo not installed (pacman -S mesa-utils)"
+fi
+
+# ---- network --------------------------------------------------------------
+section "Network"
+if ip route get 1.1.1.1 &>/dev/null; then
+    pass "route" "default gateway present"
+else
+    fail "route" "no default route - open the network applet, or run: nmtui"
+fi
+if ping -c1 -W2 archlinux.org &>/dev/null; then
+    pass "internet" "reachable"
+else
+    warn "internet" "cannot reach archlinux.org (offline, or DNS is down)"
+fi
+
+# ---- guest agent ----------------------------------------------------------
+case $virt in
+    kvm|qemu)   unit=spice-vdagentd ;;
+    oracle)     unit=vboxservice ;;
+    vmware)     unit=vmtoolsd ;;
+    microsoft)  unit=hv_kvp_daemon ;;
+    *)          unit="" ;;
+esac
+if [[ -n $unit ]]; then
+    section "Virtual machine integration"
+    if systemctl is-active --quiet "$unit" 2>/dev/null; then
+        pass "guest agent" "$unit running (clipboard + resize work)"
+    else
+        warn "guest agent" "$unit not running - resize/clipboard may not work; check the host display settings"
+    fi
+fi
+
+# ---- storage & services ---------------------------------------------------
+section "System"
+read -r avail pcent < <(df -h --output=avail,pcent / 2>/dev/null | awk 'NR==2{print $1, $2}')
+use_num="${pcent%\%}"
+if [[ ${use_num:-0} -ge 95 ]]; then
+    fail "disk space" "/ is ${pcent} full ($avail free)"
+else
+    pass "disk space" "$avail free on /"
+fi
+if timedatectl show -p NTPSynchronized --value 2>/dev/null | grep -q yes; then
+    pass "clock" "synchronised (TLS and package signatures need this)"
+else
+    warn "clock" "not synchronised - sudo timedatectl set-ntp true"
+fi
+if command -v ufw &>/dev/null; then
+    if ufw status 2>/dev/null | grep -qi 'Status: active'; then
+        pass "firewall" "active"
+    else
+        warn "firewall" "inactive - turn it on in the Firewall app (gufw) or: sudo ufw enable"
+    fi
+fi
+failed_units="$(systemctl --failed --no-legend 2>/dev/null | awk '{print $1}' | tr '\n' ' ')"
+if [[ -n ${failed_units// } ]]; then
+    warn "services" "failed: $failed_units (details: systemctl --failed)"
+else
+    pass "services" "no failed units"
+fi
+
+# ---- summary --------------------------------------------------------------
+printf '\n%sSummary:%s ' "$BOLD" "$RST"
+if (( fails == 0 && warns == 0 )); then
+    printf '%severything looks good.%s\n' "$GRN" "$RST"
+elif (( fails == 0 )); then
+    printf '%s%d warning(s)%s, nothing broken.\n' "$YEL" "$warns" "$RST"
+else
+    printf '%s%d problem(s)%s and %s%d warning(s)%s - see the fixes above.\n' \
+        "$RED" "$fails" "$RST" "$YEL" "$warns" "$RST"
+fi
+printf '%sMore help: undrabyte-vmcheck (graphics/VM), undrabyte help (everything).%s\n' "$DIM" "$RST"

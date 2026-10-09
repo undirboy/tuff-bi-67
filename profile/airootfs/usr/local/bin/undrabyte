@@ -81,6 +81,7 @@ run|radare2|Reverse engineering framework|r2
 gui|Ghidra|Decompiler and disassembler|ghidra
 run|searchsploit|Search the Exploit-DB archive|searchsploit
 run|Practice lab (Docker targets)|DVWA, Juice Shop and friends, on localhost|undrabyte-lab list
+run|CTF workspace|Scaffold a challenge folder and install the RE kit|undrabyte-ctf status
 run|Add more tools|BlackArch groups and AUR builds|undrabyte-toolkit
 MENU
 }
@@ -133,10 +134,12 @@ note|---|---|---
 gui|Firewall|Turn the firewall on and allow/deny apps|gufw
 run|Firewall status|Show firewall rules in the terminal|sudo ufw status verbose
 note|---|---|---
+run|System health check|Is it tuned, online, accelerated, healthy? Plain-language fixes|undrabyte-doctor
 run|Virtualisation health|Hypervisor, 3D, guest agent, folder sharing|undrabyte-vmcheck
 run|Package toolkit|BlackArch, AUR, system update|undrabyte-toolkit status
-run|Update everything|pacman -Syu, and AUR if paru is present|sudo undrabyte-toolkit update
+run|Update everything (safe)|Refresh the keyring + mirrors, then upgrade (and AUR)|sudo undrabyte-update
 note|---|---|---
+run|Make this USB persistent|Keep files and changes across reboots on a live stick|sudo undrabyte-persist status
 run|Install to disk|Partition, format and install this system|sudo undrabyte-install --dry-run
 MENU
 }

@@ -83,6 +83,11 @@ file_permissions=(
   ["/usr/local/bin/undrabyte-share"]="0:0:755"
   ["/usr/local/bin/undrabyte-passgen"]="0:0:755"
   ["/usr/local/bin/undrabyte-setup"]="0:0:755"
+  ["/usr/local/bin/undrabyte-update"]="0:0:755"
+  ["/usr/local/bin/undrabyte-persist"]="0:0:755"
+  ["/usr/local/bin/undrabyte-doctor"]="0:0:755"
+  ["/usr/local/bin/undrabyte-ctf"]="0:0:755"
   ["/usr/lib/undrabyte/live-setup.sh"]="0:0:755"
   ["/usr/lib/undrabyte/install-brave.sh"]="0:0:755"
+  ["/usr/lib/undrabyte/flathub-setup.sh"]="0:0:755"
 )
