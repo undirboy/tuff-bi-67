@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+#
+# A password-protected encrypted folder, backed by gocryptfs. The encrypted
+# data lives in ~/.vault (ciphertext, safe to back up or copy to a USB); when
+# unlocked it appears as a normal folder at ~/Vault that only you can read.
+#
+#   undrabyte-vault init            create the vault (asks for a password)
+#   undrabyte-vault open            unlock it -> ~/Vault
+#   undrabyte-vault close           lock it (unmount ~/Vault)
+#   undrabyte-vault status          is it set up / open?
+#
+# Forgot the password = the data is gone. There is no recovery, by design.
+
+set -uo pipefail
+
+BOLD=$'\033[1m'; RST=$'\033[0m'
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+ok()   { printf '%s  ok%s %s\n' "$GRN" "$RST" "$*"; }
+warn() { printf '%swarning:%s %s\n' "$YEL" "$RST" "$*" >&2; }
+
+usage() { sed -n '3,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
+CIPHER="$HOME/.vault"       # encrypted store
+PLAIN="$HOME/Vault"         # mountpoint when unlocked
+
+command -v gocryptfs &>/dev/null || die "gocryptfs is not installed. On this edition: sudo pacman -S gocryptfs (or undrabyte-toolkit)."
+
+is_open() { mountpoint -q "$PLAIN" 2>/dev/null; }
+
+cmd_init() {
+    [[ -f "$CIPHER/gocryptfs.conf" ]] && die "a vault already exists at $CIPHER (open it instead)"
+    mkdir -p "$CIPHER"
+    info "creating an encrypted vault at $CIPHER"
+    printf '%sChoose a strong password. If you forget it the contents are unrecoverable.%s\n' "$YEL" "$RST"
+    gocryptfs -init "$CIPHER" || die "init failed"
+    ok "vault created - open it with: undrabyte-vault open"
+}
+
+cmd_open() {
+    [[ -f "$CIPHER/gocryptfs.conf" ]] || die "no vault yet - create one with: undrabyte-vault init"
+    is_open && { ok "already open at $PLAIN"; return 0; }
+    mkdir -p "$PLAIN"
+    info "unlocking -> $PLAIN"
+    gocryptfs "$CIPHER" "$PLAIN" || die "wrong password, or mount failed"
+    ok "open. Put sensitive files in $PLAIN; run 'undrabyte-vault close' when done."
+}
+
+cmd_close() {
+    is_open || { ok "not open"; return 0; }
+    info "locking $PLAIN"
+    fusermount -u "$PLAIN" 2>/dev/null || umount "$PLAIN" 2>/dev/null || die "could not unmount (is a file still open in $PLAIN?)"
+    rmdir "$PLAIN" 2>/dev/null || true
+    ok "locked"
+}
+
+cmd_status() {
+    printf '%sEncrypted vault%s\n\n' "$BOLD" "$RST"
+    if [[ -f "$CIPHER/gocryptfs.conf" ]]; then
+        printf '  %-14s %s (%s)\n' "store" "exists" "$CIPHER"
+    else
+        printf '  %-14s %snot set up%s - run: undrabyte-vault init\n' "store" "$YEL" "$RST"
+    fi
+    if is_open; then
+        printf '  %-14s %sOPEN%s at %s\n' "state" "$GRN" "$RST" "$PLAIN"
+    else
+        printf '  %-14s locked\n' "state"
+    fi
+}
+
+case ${1:-status} in
+    init)       cmd_init ;;
+    open|unlock) cmd_open ;;
+    close|lock) cmd_close ;;
+    status)     cmd_status ;;
+    -h|--help)  usage ;;
+    *)          usage >&2; die "unknown command: $1" ;;
+esac

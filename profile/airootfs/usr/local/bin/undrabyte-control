@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+#
+# UndraByte Control Center - one window for the things people reach for most:
+# health, speed, updates, look, safety, software and install. Every button
+# just launches an existing undrabyte-* tool, so this is a friendly face on
+# top of them, not a second implementation.
+#
+# With no graphical session (or no yad) it drops to the text launcher, so the
+# same command works everywhere:  undrabyte-control
+#
+#   undrabyte-control            open the Control Center
+
+set -uo pipefail
+
+TITLE="UndraByte Control Center"
+ICON=preferences-desktop
+
+have() { command -v "$1" &>/dev/null; }
+
+# A terminal to run the CLI tools in. Fall back through the usual suspects.
+run_term() {
+    local title=$1; shift
+    local t
+    for t in xfce4-terminal konsole gnome-terminal alacritty kitty xterm; do
+        if have "$t"; then
+            case $t in
+                xfce4-terminal) exec "$t" --title="$title" -x "$@" ;;
+                konsole)        exec "$t" -p "tabtitle=$title" -e "$@" ;;
+                *)              exec "$t" -e "$@" ;;
+            esac
+        fi
+    done
+    exec "$@"   # no terminal? run it directly
+}
+
+# Launch a command (in a terminal when it is a TUI/CLI tool) and return here.
+launch() {
+    local kind=$1 title=$2; shift 2
+    if [[ $kind == term ]]; then
+        ( run_term "$title" "$@" ) &
+    else
+        ( "$@" ) &>/dev/null &
+    fi
+}
+
+# No GUI available -> the text launcher is the control center.
+if ! have yad || [[ -z ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]]; then
+    exec undrabyte "${@:-}"
+fi
+
+while true; do
+    # yad --form with field-buttons returns nothing useful for navigation, so
+    # use a button-grid via --list is awkward; instead a simple column of
+    # labelled buttons with distinct exit codes is the clearest.
+    yad --title="$TITLE" --window-icon="$ICON" --center --borders=16 \
+        --width=460 --height=520 --image="$ICON" \
+        --text="<b>UndraByte Control Center</b>\nPick what you want to do." \
+        --button="Health check!utilities-system-monitor:10" \
+        --button="Speed up!applications-system:11" \
+        --button="Update!system-software-update:12" \
+        --button="Appearance!preferences-desktop-theme:13" \
+        --button="Firewall!security-high:14" \
+        --button="Persistence!drive-removable-media:15" \
+        --button="Backup!document-save:16" \
+        --button="Vault!channel-secure:17" \
+        --button="Software!system-software-install:18" \
+        --button="Install to disk!drive-harddisk:19" \
+        --button="Close!window-close:1"
+    rc=$?
+    case $rc in
+        10) launch term "Health check" undrabyte-doctor ;;
+        11) launch term "Optimise"     sudo undrabyte-optimize apply --aggressive ;;
+        12) launch term "Update"       sudo undrabyte-update ;;
+        13) have undrabyte-theme   && launch term "Appearance" undrabyte-theme status ;;
+        14) if have gufw; then launch gui "Firewall" gufw; else launch term "Firewall" sudo ufw status verbose; fi ;;
+        15) launch term "Persistence"  sudo undrabyte-persist status ;;
+        16) launch term "Backup"       undrabyte-backup ;;
+        17) launch term "Vault"        undrabyte-vault status ;;
+        18) have undrabyte-software && launch gui "Software" undrabyte-software ;;
+        19) launch term "Install"      sudo undrabyte-install --dry-run ;;
+        *)  break ;;   # Close, Esc or window-close
+    esac
+done

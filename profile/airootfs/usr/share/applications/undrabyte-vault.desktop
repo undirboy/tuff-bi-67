@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Encrypted Vault
+GenericName=Encrypted folder
+Comment=A password-protected encrypted folder for sensitive files (gocryptfs)
+Exec=undrabyte-vault status
+Icon=channel-secure
+Terminal=true
+Categories=System;Security;Utility;X-UndraByte;
+Keywords=vault;encrypt;encrypted;gocryptfs;secure;password;private;

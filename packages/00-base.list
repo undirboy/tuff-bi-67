@@ -83,6 +83,10 @@ vim
 which
 zsh
 
+# Tor in every edition (undrabyte-anon toggles it; minimal/dev/gaming lacked it)
+tor
+torsocks
+
 # Small CLI helpers used by the undrabyte-* tools (all tiny):
 qrencode   # undrabyte-share: scannable QR code for the download link
 xclip      # undrabyte-passgen -c: copy generated password to the clipboard

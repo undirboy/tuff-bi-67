@@ -117,6 +117,7 @@ MENU
 
 menu_system() {
     cat <<'MENU'
+gui|Control Center|One window: health, speed, updates, look, safety, install|undrabyte-control
 gui|Software (install apps)|Point-and-click installer: browsers, media, office, graphics|undrabyte-software
 gui|Run a Windows program|Run .exe / .msi with Wine (installed on demand)|undrabyte-winapps
 note|---|---|---
@@ -139,6 +140,8 @@ run|Virtualisation health|Hypervisor, 3D, guest agent, folder sharing|undrabyte-
 run|Package toolkit|BlackArch, AUR, system update|undrabyte-toolkit status
 run|Update everything (safe)|Refresh the keyring + mirrors, then upgrade (and AUR)|sudo undrabyte-update
 note|---|---|---
+run|Back up / restore|Copy your home + settings to a drive, or restore them|undrabyte-backup
+run|Encrypted vault|A password-protected folder for sensitive files|undrabyte-vault status
 run|Make this USB persistent|Keep files and changes across reboots on a live stick|sudo undrabyte-persist status
 run|Install to disk|Partition, format and install this system|sudo undrabyte-install --dry-run
 MENU
@@ -156,6 +159,7 @@ run|Security toolkit|What is installed, and how to build a lab|less /usr/local/s
 run|WiFi security|Cracking your own WPA2, wirelessly|less /usr/local/share/undrabyte/docs/WIFI-SECURITY.md
 run|Small machines|Tuning for 4 GB and two cores|less /usr/local/share/undrabyte/docs/LOW-SPEC.md
 run|Installing|Putting this on a disk|less /usr/local/share/undrabyte/docs/INSTALL.md
+run|Make a bootable USB|Write UndraByte to a stick from Windows, Mac or Linux|less /usr/local/share/undrabyte/docs/WRITE-USB.md
 run|Lawful use|Licensing, and the rules around the offensive tooling|less /usr/local/share/undrabyte/docs/LEGAL.md
 MENU
 }

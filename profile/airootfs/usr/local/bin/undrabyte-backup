@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+#
+# Back up your home directory (and a few key system configs) to a folder you
+# choose - an external drive, the persistence store, or anywhere mounted - and
+# restore it later. Uses rsync so repeat runs only copy what changed.
+#
+#   undrabyte-backup                       guided: pick a destination, then back up
+#   undrabyte-backup to <dir>              back up $HOME into <dir>/undrabyte-backup/
+#   undrabyte-backup restore <dir>         restore a backup from <dir> into $HOME
+#   undrabyte-backup list <dir>            show what a backup contains
+#
+# System configs captured (best-effort, needs sudo to read some):
+#   /etc/undrabyte  /etc/NetworkManager/system-connections (saved Wi-Fi)
+
+set -uo pipefail
+
+BOLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+ok()   { printf '%s  ok%s %s\n' "$GRN" "$RST" "$*"; }
+warn() { printf '%swarning:%s %s\n' "$YEL" "$RST" "$*" >&2; }
+
+usage() { sed -n '3,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
+command -v rsync &>/dev/null || die "rsync is not installed (pacman -S rsync)"
+
+NAME=undrabyte-backup
+HOMEDIR="$HOME"
+
+# Exclude caches and other churn that should not be in a backup.
+EXCLUDES=(
+    --exclude '.cache' --exclude '.local/share/Trash'
+    --exclude '.mozilla/firefox/*/cache2' --exclude '.config/*/Cache'
+    --exclude 'Downloads' --exclude '.local/share/Steam'
+    --exclude '*.iso' --exclude 'node_modules' --exclude '.venv' --exclude 'venv'
+)
+
+pick_dir_gui() {
+    command -v yad &>/dev/null && [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] || return 1
+    yad --file --directory --title="Back up to which folder?" --center --width=600 --height=420
+}
+
+do_backup() {
+    local base=$1
+    [[ -n $base ]] || die "no destination given"
+    [[ -d $base ]] || die "destination does not exist: $base"
+    local dest="$base/$NAME"
+    mkdir -p "$dest/home" "$dest/etc"
+    info "backing up $HOMEDIR -> $dest/home"
+    rsync -a --delete --info=progress2 "${EXCLUDES[@]}" "$HOMEDIR"/ "$dest/home"/ \
+        || die "home backup failed"
+    ok "home backed up"
+
+    # Best-effort system bits. Saved Wi-Fi needs root to read.
+    info "saving system configs (may prompt for sudo)"
+    sudo rsync -a --delete /etc/undrabyte/ "$dest/etc/undrabyte"/ 2>/dev/null || warn "could not copy /etc/undrabyte"
+    if [[ -d /etc/NetworkManager/system-connections ]]; then
+        sudo rsync -a --delete /etc/NetworkManager/system-connections/ \
+            "$dest/etc/nm-connections"/ 2>/dev/null || warn "could not copy saved Wi-Fi"
+    fi
+    printf '%s\n' "$(date -Is)" > "$dest/.undrabyte-backup-stamp" 2>/dev/null || true
+    ok "backup complete: $dest"
+    printf '%sRestore it later with:%s undrabyte-backup restore %s\n' "$DIM" "$RST" "$base"
+}
+
+do_restore() {
+    local base=$1
+    [[ -n $base ]] || die "name the folder that holds the backup"
+    local dest="$base/$NAME"
+    [[ -d $dest/home ]] || die "no UndraByte backup found in $base"
+    printf '%sRestore %s into %s?%s This overwrites changed files. [y/N] ' \
+        "$YEL" "$dest/home" "$HOMEDIR" "$RST"
+    local r; read -r r; [[ $r == [yY]* ]] || die "aborted"
+    info "restoring home"
+    rsync -a --info=progress2 "$dest/home"/ "$HOMEDIR"/ || die "restore failed"
+    if [[ -d $dest/etc/nm-connections ]]; then
+        info "restoring saved Wi-Fi (sudo)"
+        sudo rsync -a "$dest/etc/nm-connections"/ /etc/NetworkManager/system-connections/ 2>/dev/null \
+            && sudo chmod 600 /etc/NetworkManager/system-connections/* 2>/dev/null || warn "could not restore Wi-Fi"
+    fi
+    ok "restore complete"
+}
+
+case ${1:-guided} in
+    guided)
+        dir="$(pick_dir_gui)" || true
+        [[ -z ${dir:-} ]] && { printf 'Back up to which folder? '; read -r dir; }
+        [[ -n ${dir:-} ]] || die "no destination chosen"
+        do_backup "$dir" ;;
+    to)        shift; do_backup "${1:-}" ;;
+    restore)   shift; do_restore "${1:-}" ;;
+    list)      shift; base=${1:-}; [[ -d $base/$NAME ]] || die "no backup in ${base:-<none>}";
+               info "backup in $base/$NAME"; du -sh "$base/$NAME"/* 2>/dev/null | sed 's/^/  /' ;;
+    -h|--help) usage ;;
+    *)         usage >&2; die "unknown command: $1" ;;
+esac
