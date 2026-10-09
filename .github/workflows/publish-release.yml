@@ -36,39 +36,96 @@ jobs:
       - name: Publish (or update) the release with the ISO attached
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          ARTIFACT: ${{ inputs.artifact }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
         run: |
+          set -euo pipefail
           iso="$(find iso -name '*.iso' | head -1)"
           [ -n "$iso" ] || { echo "no ISO found in the artifact"; exit 1; }
 
-          # GitHub rejects a release asset of 2 GiB or more. Check this BEFORE
-          # touching the existing release, so an oversized image fails the job
-          # while leaving the current download link intact.
           bytes="$(stat -c%s "$iso")"
-          limit=2147483648
-          if [ "$bytes" -ge "$limit" ]; then
-            echo "::error::ISO is ${bytes} bytes, at or over GitHub's 2 GiB" \
-                 "release-asset limit (${limit}). Shrink the image before publishing;" \
-                 "the existing release was left untouched."
-            exit 1
-          fi
-
           size="$(du -h "$iso" | cut -f1)"
-          notes="UndraByte ${{ inputs.artifact }} live ISO ($size). Direct, resumable CDN download. Boot in UTM or QEMU."
+          sha="$(sha256sum "$iso" | cut -d' ' -f1)"
+          base="$(basename "$iso")"
+          # GitHub rejects a single release asset of 2 GiB or more. Split above
+          # a chunk size safely under that; stay single-asset below it so the
+          # small editions keep one clean, stable download URL.
+          limit=2147483648          # 2 GiB, GitHub's hard per-asset cap
+          chunk=1900M               # < 2 GiB, leaves headroom
+
+          # Stage exactly the files to upload in a clean dir.
+          rm -rf upload && mkdir upload
+          if [ "$bytes" -ge "$limit" ]; then
+            echo "ISO is $size (>= 2 GiB): splitting into ${chunk} parts"
+            # Zero-padded numeric suffixes: base.iso.part00, .part01, ...
+            split -b "$chunk" -d -a 2 "$iso" "upload/${base}.part"
+            ( cd upload && sha256sum ./* > SHA256SUMS )
+            # Put the whole-ISO checksum in the sums file too, for verification
+            # after reassembly.
+            echo "$sha  $base" >> upload/SHA256SUMS
+            mode="split"
+            parts="$(find upload -name "${base}.part*" | wc -l)"
+          else
+            echo "ISO is $size (< 2 GiB): uploading as a single asset"
+            cp "$iso" "upload/$base"
+            ( cd upload && sha256sum ./* > SHA256SUMS )
+            mode="single"
+          fi
+          ls -lh upload/
+
+          # Release notes -> notes.md (built line by line so the YAML block
+          # scalar stays valid and the markdown carries no stray indentation).
+          # For split images, give copy-paste reassembly for every host OS.
+          if [ "$mode" = split ]; then
+            {
+              printf '%s\n\n' "UndraByte **${ARTIFACT}** live ISO (${size}). Boot in UTM, QEMU or VirtualBox."
+              printf '%s\n\n' "This image exceeds GitHub's 2 GiB per-file limit, so it ships as ${parts} parts (\`${base}.part00\`, \`.part01\`, ...). Download **all** parts and \`SHA256SUMS\`, then rejoin them into one ISO:"
+              printf '%s\n' "**Linux / macOS**"
+              printf '%s\n' '```'
+              printf '%s\n' "cat ${base}.part* > ${base}"
+              printf '%s\n' "sha256sum -c SHA256SUMS      # expect: ${base}: OK"
+              printf '%s\n\n' '```'
+              printf '%s\n' "**Windows (PowerShell)**"
+              printf '%s\n' '```'
+              printf '%s\n' "cmd /c copy /b (${base}.part00 + ${base}.part01 + ...) ${base}"
+              printf '%s\n\n' '```'
+              printf '%s\n' "Direct, resumable CDN downloads (no login, no zip)."
+            } > notes.md
+          else
+            printf '%s\n' "UndraByte **${ARTIFACT}** live ISO (${size}). Direct, resumable CDN download (no login, no zip). Boot in UTM, QEMU or VirtualBox. Verify with \`sha256sum -c SHA256SUMS\`." > notes.md
+          fi
 
           # Create the release only if the tag does not exist yet; never delete
-          # it first. Then replace the asset in place with --clobber, so a
-          # failed upload can never leave the tag with no downloadable ISO.
-          if ! gh release view '${{ inputs.tag }}' -R '${{ github.repository }}' >/dev/null 2>&1; then
-            gh release create '${{ inputs.tag }}' \
-               -R '${{ github.repository }}' \
-               --title 'UndraByte live ISO' \
-               --notes "$notes" \
-               --target '${{ github.sha }}'
+          # it first. Replace assets in place with --clobber so a failed upload
+          # can never leave the tag with no downloadable image.
+          if ! gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            gh release create "$TAG" -R "$REPO" \
+               --title "UndraByte live ISO ($ARTIFACT)" \
+               --notes-file notes.md \
+               --target "$SHA"
           else
-            gh release edit '${{ inputs.tag }}' -R '${{ github.repository }}' --notes "$notes"
+            gh release edit "$TAG" -R "$REPO" \
+               --title "UndraByte live ISO ($ARTIFACT)" --notes-file notes.md
           fi
-          gh release upload '${{ inputs.tag }}' "$iso" -R '${{ github.repository }}' --clobber
 
-          echo "Release asset URL:"
-          gh release view '${{ inputs.tag }}' -R '${{ github.repository }}' --json assets \
-             --jq '.assets[].url'
+          # If a previous publish to this tag split the image and this one does
+          # not (or vice-versa), stale assets of the other shape would linger.
+          # Remove any asset not in this upload set before clobbering.
+          mapfile -t keep < <(cd upload && find . -maxdepth 1 -type f -printf '%f\n')
+          existing="$(gh release view "$TAG" -R "$REPO" --json assets --jq '.assets[].name' || true)"
+          for a in $existing; do
+            skip=0
+            for k in "${keep[@]}"; do [ "$a" = "$k" ] && skip=1 && break; done
+            if [ "$skip" -eq 0 ]; then
+              echo "removing stale asset: $a"
+              gh release delete-asset "$TAG" "$a" -R "$REPO" --yes || true
+            fi
+          done
+
+          gh release upload "$TAG" upload/* -R "$REPO" --clobber
+
+          echo "Release assets:"
+          gh release view "$TAG" -R "$REPO" --json assets \
+             --jq '.assets[] | "\(.name)  \(.size) bytes"'

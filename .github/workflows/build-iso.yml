@@ -1,8 +1,10 @@
 name: build-iso
 
-# Builds a trimmed image to prove the profile still assembles. A `full`
-# edition needs ~25 GB of scratch space and will not fit on a hosted runner;
-# build those locally or on a self-hosted runner.
+# Builds any edition, including `full`. A full build needs ~25 GB of scratch,
+# more than the container's root overlay has, so mkarchiso's work directory is
+# put on the runner's large ephemeral disk (/mnt, ~70 GB on GitHub-hosted
+# runners), bind-mounted into the build container. The final ISO still lands in
+# the workspace's out/ for the upload step.
 
 on:
   workflow_dispatch:
@@ -29,12 +31,19 @@ jobs:
     container:
       image: archlinux:latest
       options: --privileged        # mkarchiso needs loop devices and mount
+      volumes:
+        - /mnt:/mnt                 # the runner's big ephemeral disk, for scratch
     steps:
-      - name: Free up disk space on the runner
+      - name: Scratch space
+        # The container's root overlay is too small for a full build. The
+        # runner's /mnt (bind-mounted above) has ~70 GB; put mkarchiso's work
+        # directory there. (The old `rm -rf /usr/share/dotnet ...` dance freed
+        # nothing here: those paths live on the host, not inside this Arch
+        # container, so the build could only ever use the cramped overlay.)
         run: |
-          df -h /
-          rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
-          df -h /
+          mkdir -p /mnt/undrabyte-work
+          echo "root overlay:"; df -h /
+          echo "scratch (/mnt):"; df -h /mnt
 
       - name: Install the build tools
         # grub is only an *optional* dependency of archiso, and the profile's
@@ -52,6 +61,7 @@ jobs:
           ./scripts/build-iso.sh \
             --edition '${{ inputs.edition }}' \
             --desktop '${{ inputs.desktop }}' \
+            --work /mnt/undrabyte-work \
             --vm-only
 
       - name: Report
