@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=System Snapshots
+GenericName=Snapshots
+Comment=Take, list and roll back system snapshots (Btrfs/snapper)
+Exec=sudo undrabyte-snapshot list
+Icon=document-revert
+Terminal=true
+Categories=System;Settings;X-UndraByte;
+Keywords=snapshot;rollback;restore;btrfs;snapper;backup;revert;

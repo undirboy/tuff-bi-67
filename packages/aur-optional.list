@@ -7,6 +7,14 @@
 # undrabyte-brave-install service builds it in the background on first boot.
 brave-bin
 
+# Graphical installer (optional alternative to the built-in undrabyte-install).
+# AUR-only, so it cannot be baked into a reproducible ISO; the Control Center's
+# "Install (graphical)" button builds and launches it on a live session.
+calamares
+
+# Snapshot/rollback GUI, a friendly front-end over undrabyte-snapshot's backend.
+timeshift
+
 burpsuite
 zaproxy
 ffuf

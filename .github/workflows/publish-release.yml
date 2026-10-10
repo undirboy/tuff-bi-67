@@ -16,6 +16,10 @@ on:
       tag:
         description: 'Release tag'
         default: iso-latest
+      make_torrent:
+        description: 'Also attach a .torrent (GitHub CDN as web seed, experimental)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -40,6 +44,9 @@ jobs:
           ARTIFACT: ${{ inputs.artifact }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
+          MAKE_TORRENT: ${{ inputs.make_torrent }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           set -euo pipefail
           iso="$(find iso -name '*.iso' | head -1)"
@@ -73,6 +80,47 @@ jobs:
             ( cd upload && sha256sum ./* > SHA256SUMS )
             mode="single"
           fi
+          # GPG-sign the checksum file when a signing key is configured
+          # (repo secret GPG_PRIVATE_KEY, ASCII-armored). Produces a detached
+          # SHA256SUMS.asc so anyone can verify the download's integrity and
+          # origin. Skipped cleanly when no key is set.
+          if [ -n "${GPG_PRIVATE_KEY:-}" ]; then
+            echo "signing SHA256SUMS with the configured GPG key"
+            export GNUPGHOME="$(mktemp -d)"
+            printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
+            keyid="$(gpg --list-secret-keys --with-colons | awk -F: '/^sec:/{print $5; exit}')"
+            gpg --batch --yes --pinentry-mode loopback \
+                ${GPG_PASSPHRASE:+--passphrase "$GPG_PASSPHRASE"} \
+                --local-user "$keyid" --armor --detach-sign \
+                --output upload/SHA256SUMS.asc upload/SHA256SUMS
+            gpg --armor --export "$keyid" > upload/undrabyte-signing-key.asc
+            echo "signed; attaching SHA256SUMS.asc and the public key"
+            SIGNED=1
+          else
+            echo "no GPG_PRIVATE_KEY secret set - skipping signing"
+            SIGNED=0
+          fi
+
+          # Optional BitTorrent: a .torrent whose web seed is the GitHub CDN, so
+          # downloads work with zero dedicated seeders and peers can share the
+          # load. Experimental - verify it against a client before relying on it.
+          if [ "$MAKE_TORRENT" = "true" ]; then
+            if command -v mktorrent >/dev/null 2>&1 || sudo apt-get install -y mktorrent >/dev/null 2>&1; then
+              webseed="https://github.com/${REPO}/releases/download/${TAG}"
+              ( cd upload
+                mktorrent -l 20 \
+                  -a "udp://tracker.opentrackr.org:1337/announce" \
+                  -a "udp://tracker.openbittorrent.com:6969/announce" \
+                  -w "$webseed" \
+                  -n "undrabyte-${TAG}" \
+                  -o "undrabyte-${TAG}.torrent" \
+                  ./* )
+              echo "created upload/undrabyte-${TAG}.torrent (web seed: $webseed)"
+            else
+              echo "mktorrent unavailable - skipping torrent"
+            fi
+          fi
+
           ls -lh upload/
 
           # Release notes -> notes.md (built line by line so the YAML block
@@ -95,6 +143,19 @@ jobs:
             } > notes.md
           else
             printf '%s\n' "UndraByte **${ARTIFACT}** live ISO (${size}). Direct, resumable CDN download (no login, no zip). Boot in UTM, QEMU or VirtualBox. Verify with \`sha256sum -c SHA256SUMS\`." > notes.md
+          fi
+
+          # Verification / torrent footnotes.
+          if [ "${SIGNED:-0}" = "1" ]; then
+            {
+              printf '\n%s\n' "**Verify the signature** (optional): import \`undrabyte-signing-key.asc\`, then"
+              printf '%s\n' '```'
+              printf '%s\n' "gpg --verify SHA256SUMS.asc SHA256SUMS"
+              printf '%s\n' '```'
+            } >> notes.md
+          fi
+          if [ -f upload/undrabyte-${TAG}.torrent ]; then
+            printf '\n%s\n' "A \`.torrent\` is attached (GitHub CDN as web seed). Experimental." >> notes.md
           fi
 
           # Create the release only if the tag does not exist yet; never delete

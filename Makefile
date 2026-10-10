@@ -23,7 +23,7 @@ ifeq ($(DOCKER),1)
 BUILD_FLAGS += --docker
 endif
 
-.PHONY: help check iso iso-lite iso-vm iso-security iso-docker packages verify lint run run-install clean distclean
+.PHONY: help check iso iso-lite iso-vm iso-security iso-creator iso-server iso-docker packages verify lint run run-install clean distclean
 
 help: ## Show this help
 	@printf '\033[1mUndraByte Linux %s\033[0m\n\n' '$(VERSION)'
@@ -46,6 +46,12 @@ iso-vm: ## Build a trimmed VM-only ISO
 
 iso-security: ## Build the security edition (no gaming stack)
 	$(MAKE) iso EDITION=security
+
+iso-creator: ## Build the creator/media edition (video, audio, 3D, streaming)
+	$(MAKE) iso EDITION=creator
+
+iso-server: ## Build the headless server edition (no desktop)
+	$(MAKE) iso EDITION=server DESKTOP=none
 
 iso-docker: ## Build inside an archlinux container (non-Arch hosts)
 	$(MAKE) iso DOCKER=1

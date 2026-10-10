@@ -43,6 +43,26 @@ launch() {
     fi
 }
 
+# The graphical installer (Calamares) is AUR-only, so it is not baked into the
+# ISO. Offer to build it on demand on a live session, then launch it as root.
+launch_calamares() {
+    if have calamares; then
+        run_term "Graphical install" sh -c 'pkexec calamares 2>/dev/null || sudo -E calamares' &
+        return 0
+    fi
+    yad --title="$TITLE" --window-icon="$ICON" --center --borders=16 --width=420 \
+        --image=drive-harddisk \
+        --text="<b>Graphical installer (Calamares)</b>\n\nIt is not installed yet (it builds from the AUR). Build and launch it now?\nThis needs a network connection and a few minutes." \
+        --button="Use the built-in installer:2" \
+        --button="Build Calamares:0" --button="Cancel:1"
+    case $? in
+        0) run_term "Building Calamares" sh -c \
+             'undrabyte-toolkit aur calamares && { pkexec calamares 2>/dev/null || sudo -E calamares; } || { echo; echo "Build failed - falling back to the built-in installer."; sudo undrabyte-install --dry-run; } ; echo; read -rp "Press Enter to close…" _' & ;;
+        2) launch term "Install" sudo undrabyte-install --dry-run ;;
+        *) : ;;
+    esac
+}
+
 # No GUI available -> the text launcher is the control center.
 if ! have yad || [[ -z ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]]; then
     exec undrabyte "${@:-}"
@@ -53,7 +73,7 @@ while true; do
     # use a button-grid via --list is awkward; instead a simple column of
     # labelled buttons with distinct exit codes is the clearest.
     yad --title="$TITLE" --window-icon="$ICON" --center --borders=16 \
-        --width=460 --height=520 --image="$ICON" \
+        --width=460 --height=640 --image="$ICON" \
         --text="<b>UndraByte Control Center</b>\nPick what you want to do." \
         --button="Health check!utilities-system-monitor:10" \
         --button="Speed up!applications-system:11" \
@@ -63,8 +83,13 @@ while true; do
         --button="Persistence!drive-removable-media:15" \
         --button="Backup!document-save:16" \
         --button="Vault!channel-secure:17" \
+        --button="Snapshots!document-revert:20" \
+        --button="Free up space!user-trash:21" \
+        --button="Secure Boot!security-high:22" \
+        --button="Support report!help-about:23" \
         --button="Software!system-software-install:18" \
         --button="Install to disk!drive-harddisk:19" \
+        --button="Install (graphical)!drive-harddisk:24" \
         --button="Close!window-close:1"
     rc=$?
     case $rc in
@@ -78,6 +103,11 @@ while true; do
         17) launch term "Vault"        undrabyte-vault status ;;
         18) have undrabyte-software && launch gui "Software" undrabyte-software ;;
         19) launch term "Install"      sudo undrabyte-install --dry-run ;;
+        20) launch term "Snapshots"    sudo undrabyte-snapshot list ;;
+        21) launch term "Free up space" sudo undrabyte-cleanup ;;
+        22) launch term "Secure Boot"  sudo undrabyte-secureboot status ;;
+        23) launch term "Support report" undrabyte-report ;;
+        24) launch_calamares ;;
         *)  break ;;   # Close, Esc or window-close
     esac
 done

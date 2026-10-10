@@ -21,7 +21,7 @@ jobs:
 
       - name: Resolve every edition
         run: |
-          for edition in full security dev gaming minimal; do
+          for edition in full security dev creator gaming server minimal; do
             for desktop in kde xfce none; do
               count=$(./scripts/build-iso.sh --edition "$edition" --desktop "$desktop" \
                         --list-packages 2>/dev/null | wc -l)

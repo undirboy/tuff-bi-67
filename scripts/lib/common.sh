@@ -34,12 +34,15 @@ edition_lists() {
     case $edition in
         minimal)  ;;
         lite)     lists+=("$pkgdir/45-lite.list") ;;
+        server)   lists+=("$pkgdir/35-server.list") ;;
         dev)      lists+=("$pkgdir/40-dev.list" "$pkgdir/70-extras.list") ;;
+        creator)  lists+=("$pkgdir/65-creator.list" "$pkgdir/70-extras.list") ;;
         security) lists+=("$pkgdir/40-dev.list" "$pkgdir/50-security.list" "$pkgdir/70-extras.list") ;;
         gaming)   lists+=("$pkgdir/60-gaming.list" "$pkgdir/70-extras.list") ;;
         full)     lists+=("$pkgdir/40-dev.list" "$pkgdir/50-security.list"
-                          "$pkgdir/60-gaming.list" "$pkgdir/70-extras.list") ;;
-        *)        die "unknown edition '$edition' (full, security, dev, gaming, lite, minimal)" ;;
+                          "$pkgdir/60-gaming.list" "$pkgdir/65-creator.list"
+                          "$pkgdir/70-extras.list") ;;
+        *)        die "unknown edition '$edition' (full, security, dev, creator, gaming, server, lite, minimal)" ;;
     esac
 
     [[ ${UNDRABYTE_WITH_BLACKARCH:-0} == 1 ]] && lists+=("$pkgdir/90-blackarch.list")

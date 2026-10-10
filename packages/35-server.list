@@ -1,0 +1,44 @@
+# UndraByte Linux - server / headless edition
+# A self-hosting base with no desktop assumed. Pair with `--desktop none`.
+# Added on top of 00-base (which already brings openssh, networkmanager,
+# the filesystem/RAID/LVM tooling and the recovery kit).
+
+# containers & virtualisation
+docker
+docker-compose
+podman
+qemu-base
+libvirt
+virt-install
+
+# web / reverse proxy / tls
+nginx
+certbot
+
+# databases
+postgresql
+sqlite
+valkey              # maintained drop-in for redis (what Arch ships in extra)
+
+# file & network services
+samba
+rsync
+borg                # deduplicating encrypted backups
+restic
+
+# monitoring & operations
+prometheus-node-exporter
+sysstat
+lsof
+strace
+tcpdump
+nftables
+fail2ban            # ban brute-force SSH/web attempts
+chrony              # accurate time, which TLS and logs depend on
+
+# automation
+ansible
+git
+jq
+yq
+tmux

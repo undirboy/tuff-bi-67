@@ -143,6 +143,13 @@ note|---|---|---
 run|Back up / restore|Copy your home + settings to a drive, or restore them|undrabyte-backup
 run|Encrypted vault|A password-protected folder for sensitive files|undrabyte-vault status
 run|Make this USB persistent|Keep files and changes across reboots on a live stick|sudo undrabyte-persist status
+note|---|---|---
+run|Snapshots|Take, list and roll back system snapshots (Btrfs/snapper)|sudo undrabyte-snapshot list
+run|Free up disk space|Remove orphans, caches and old logs (dry run first)|sudo undrabyte-cleanup
+run|Support report|Bundle diagnostics into one shareable file|undrabyte-report
+run|Secure Boot (your keys)|Enroll your own keys and sign the bootloader/kernel|sudo undrabyte-secureboot status
+run|First-run setup|Hostname, timezone, locale, keyboard, theme|undrabyte-firstrun --show
+note|---|---|---
 run|Install to disk|Partition, format and install this system|sudo undrabyte-install --dry-run
 MENU
 }
@@ -160,6 +167,8 @@ run|WiFi security|Cracking your own WPA2, wirelessly|less /usr/local/share/undra
 run|Small machines|Tuning for 4 GB and two cores|less /usr/local/share/undrabyte/docs/LOW-SPEC.md
 run|Installing|Putting this on a disk|less /usr/local/share/undrabyte/docs/INSTALL.md
 run|Make a bootable USB|Write UndraByte to a stick from Windows, Mac or Linux|less /usr/local/share/undrabyte/docs/WRITE-USB.md
+run|Snapshots & rollback|Take and restore system snapshots|less /usr/local/share/undrabyte/docs/SNAPSHOTS.md
+run|Secure Boot|Enroll your own keys and keep Secure Boot on|less /usr/local/share/undrabyte/docs/SECURE-BOOT.md
 run|Lawful use|Licensing, and the rules around the offensive tooling|less /usr/local/share/undrabyte/docs/LEGAL.md
 MENU
 }

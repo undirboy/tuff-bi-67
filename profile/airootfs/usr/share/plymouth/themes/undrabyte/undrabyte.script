@@ -1,0 +1,74 @@
+// UndraByte Linux boot splash.
+//
+// Deliberately asset-free: everything is drawn, so there are no PNGs to ship,
+// scale wrong, or go missing. A dark background, the brand name, a subtle
+// animated progress dot row, and a line for password prompts (LUKS unlock).
+
+// ---- background -----------------------------------------------------------
+
+screen_width  = Window.GetWidth();
+screen_height = Window.GetHeight();
+
+// Fill with UndraByte's dark background (RGB 16,24,32 -> 0..1 floats).
+Window.SetBackgroundTopColor(0.063, 0.094, 0.125);
+Window.SetBackgroundBottomColor(0.031, 0.047, 0.063);
+
+// ---- title ----------------------------------------------------------------
+
+title.image = Image.Text("UndraByte Linux", 1, 1, 1, 1, "Sans Bold 28");
+title.sprite = Sprite(title.image);
+title.sprite.SetX((screen_width  - title.image.GetWidth())  / 2);
+title.sprite.SetY((screen_height - title.image.GetHeight()) / 2 - 40);
+
+subtitle.image = Image.Text("hacking · coding · gaming", 0.5, 0.7, 0.9, 1, "Sans 12");
+subtitle.sprite = Sprite(subtitle.image);
+subtitle.sprite.SetX((screen_width - subtitle.image.GetWidth()) / 2);
+subtitle.sprite.SetY((screen_height - subtitle.image.GetHeight()) / 2 + 4);
+
+// ---- animated progress dots ----------------------------------------------
+
+dot_count = 5;
+dot_sprites = [];
+for (i = 0; i < dot_count; i++) {
+    dot_sprites[i] = Sprite();
+    dot_sprites[i].SetX(screen_width / 2 - (dot_count * 14) / 2 + i * 14);
+    dot_sprites[i].SetY((screen_height) / 2 + 40);
+}
+
+progress = 0;
+fun refresh_callback() {
+    progress++;
+    for (i = 0; i < dot_count; i++) {
+        // A soft pulse travelling across the dots.
+        phase = (progress / 6 + i) % dot_count;
+        bright = (phase == 0) ? 1.0 : 0.25;
+        d = Image.Text(".", 0.5 * bright + 0.1, 0.7 * bright + 0.1, 0.9 * bright + 0.1, 1, "Sans Bold 28");
+        dot_sprites[i].SetImage(d);
+    }
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+
+// ---- messages (fsck, etc.) ------------------------------------------------
+
+message_sprite = Sprite();
+message_sprite.SetPosition(20, screen_height - 40, 10);
+fun message_callback(text) {
+    message_sprite.SetImage(Image.Text(text, 0.8, 0.8, 0.8, 1, "Sans 10"));
+}
+Plymouth.SetMessageFunction(message_callback);
+
+// ---- password prompt (LUKS / encrypted root) -----------------------------
+
+fun display_password_callback(prompt, bullets) {
+    stars = "";
+    for (i = 0; i < bullets; i++) stars += "*";
+    prompt_sprite = Sprite(Image.Text(prompt + "  " + stars, 1, 1, 1, 1, "Sans 14"));
+    prompt_sprite.SetX((screen_width - prompt_sprite.GetImage().GetWidth()) / 2);
+    prompt_sprite.SetY(screen_height / 2 + 80);
+    global.prompt_sprite = prompt_sprite;
+}
+fun display_normal_callback() {
+    global.prompt_sprite = NULL;
+}
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);

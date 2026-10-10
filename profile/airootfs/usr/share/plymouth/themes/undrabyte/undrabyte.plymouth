@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=UndraByte
+Description=UndraByte Linux boot splash - text only, no image assets
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/undrabyte
+ScriptFile=/usr/share/plymouth/themes/undrabyte/undrabyte.script

@@ -42,10 +42,12 @@ you can pick how much you want:
 |---|---|---|
 | `minimal` | base + desktop + VM guest tools | ~2 GB |
 | `lite` | + a curated hacking/coding toolset, sized for a 2-vCPU / 4 GB guest | ~2.5 GB |
+| `server` | headless self-hosting base (Docker, nginx, databases, backups); pair with `--desktop none` | ~2.5 GB |
 | `dev` | + toolchains, editors, containers | ~4 GB |
+| `creator` | + video/audio/image/3D/streaming (Kdenlive, Krita, Blender, Ardour, OBS) | ~6 GB |
 | `security` | + dev, + the security toolkit | ~6 GB |
 | `gaming` | + Steam/Proton/Wine/emulation | ~5 GB |
-| `full` *(default)* | everything above | ~8 GB |
+| `full` *(default)* | everything above | ~9 GB |
 | `--with-blackarch` | + four BlackArch groups | +4–6 GB |
 
 ```bash
@@ -107,7 +109,12 @@ sudo undrabyte-install --disk /dev/vda --fs btrfs --swap 8G --user you
 | `undrabyte-vmcheck` | hypervisor, 3D, guest-agent and sharing health, with fixes |
 | `undrabyte-game` | gaming stack check, launch options, `undrabyte-game steam` |
 | `undrabyte-toolkit` | enable BlackArch, install tool groups, bootstrap AUR |
-| `undrabyte-install` | install to disk |
+| `undrabyte-snapshot` | take/list/roll back system snapshots (Btrfs/snapper); auto pre-update |
+| `undrabyte-cleanup` | reclaim disk space — orphans, caches, old logs |
+| `undrabyte-report` | bundle diagnostics + logs into one shareable file |
+| `undrabyte-secureboot` | enroll your own Secure Boot keys and sign the boot chain |
+| `undrabyte-firstrun` | guided first-run setup (hostname, timezone, locale, keyboard, theme) |
+| `undrabyte-install` | install to disk (btrfs gets `@`/`@home`/`@snapshots`, Plymouth splash) |
 
 ## Repository layout
 
@@ -163,6 +170,8 @@ times and disk space.
 - [SECURITY-TOOLKIT.md](docs/SECURITY-TOOLKIT.md) — what's included, BlackArch, building a lab
 - [WIFI-SECURITY.md](docs/WIFI-SECURITY.md) — cracking your own WPA2 wirelessly, from a VM or bare metal
 - [INSTALL.md](docs/INSTALL.md) — installing to a disk
+- [SNAPSHOTS.md](docs/SNAPSHOTS.md) — system snapshots and rollback (Btrfs/snapper)
+- [SECURE-BOOT.md](docs/SECURE-BOOT.md) — keeping Secure Boot on with your own keys
 - [CUSTOMISING.md](docs/CUSTOMISING.md) — your own packages, branding, defaults
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the build actually works
 - [LEGAL.md](docs/LEGAL.md) — licensing, and the rules around the offensive tooling

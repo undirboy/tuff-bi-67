@@ -53,7 +53,8 @@ ${BOLD}undrabyte-install${RST} - install UndraByte Linux to a disk
   --disk DEV          target disk, e.g. /dev/sda or /dev/nvme0n1 (prompted if omitted)
   --hostname NAME     system hostname (default: $HOSTNAME_)
   --user NAME         account to create (prompted if omitted)
-  --fs ext4|btrfs     root filesystem (default: $FSTYPE; btrfs gets @ / @home subvolumes)
+  --fs ext4|btrfs     root filesystem (default: $FSTYPE; btrfs gets @ / @home / @snapshots
+                      subvolumes and enables instant rollback via undrabyte-snapshot)
   --edition NAME      package set: full, security, dev, gaming, lite, minimal (default: $EDITION)
   --desktop NAME      kde, xfce or none (default: $DESKTOP)
   --swap SIZE         swapfile size, e.g. 8G (default: none)
@@ -249,10 +250,15 @@ if [[ $FSTYPE == btrfs ]]; then
     run mount "$ROOTDEV" "$TARGET"
     run btrfs subvolume create "$TARGET/@"
     run btrfs subvolume create "$TARGET/@home"
+    # A dedicated subvolume for undrabyte-snapshot's read-only snapshots, so
+    # they are not themselves captured by a snapshot of @ and can be pruned
+    # independently. Mounted at /.snapshots below.
+    run btrfs subvolume create "$TARGET/@snapshots"
     run umount "$TARGET"
     run mount -o noatime,compress=zstd:3,subvol=@ "$ROOTDEV" "$TARGET"
-    run mkdir -p "$TARGET/home"
+    run mkdir -p "$TARGET/home" "$TARGET/.snapshots"
     run mount -o noatime,compress=zstd:3,subvol=@home "$ROOTDEV" "$TARGET/home"
+    run mount -o noatime,compress=zstd:3,subvol=@snapshots "$ROOTDEV" "$TARGET/.snapshots"
 else
     run mkfs.ext4 -F -L UndraByte "$ROOTDEV"
     run mount "$ROOTDEV" "$TARGET"
@@ -334,6 +340,15 @@ cat > /etc/hosts <<'HOSTS'
 HOSTS
 printf '127.0.1.1\t%s\n' '$HOSTNAME_' >> /etc/hosts
 
+# Boot splash: add the plymouth hook (after kms, so the GPU is up) and the
+# 'splash' kernel argument. plymouth no-ops gracefully if a frame buffer is
+# not available, so this is safe on bare metal and in VMs alike.
+if [ -x /usr/bin/plymouth ]; then
+    grep -q '\bplymouth\b' /etc/mkinitcpio.conf || \
+        sed -i 's/\(^HOOKS=.*\bkms\b\)/\1 plymouth/' /etc/mkinitcpio.conf
+    sed -i 's/^#\?GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"/' /etc/default/grub
+fi
+
 mkinitcpio -P
 
 useradd -m -G wheel,users,audio,video,input,storage,network -s /bin/bash '$USERNAME'
@@ -364,7 +379,14 @@ else
     CHROOT_SCRIPT+=$'\n'"grub-install --target=i386-pc $DISK"
 fi
 if (( ENCRYPT )); then
-    CHROOT_SCRIPT+=$'\n'"sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont block encrypt filesystems fsck)/' /etc/mkinitcpio.conf"
+    # With plymouth present, use the plymouth + plymouth-encrypt hooks so the
+    # LUKS passphrase is asked for on the themed splash; otherwise the plain
+    # encrypt hook. plymouth goes after udev; plymouth-encrypt replaces encrypt.
+    CHROOT_SCRIPT+=$'\n'"if [ -x /usr/bin/plymouth ]; then"
+    CHROOT_SCRIPT+=$'\n'"  sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect microcode modconf kms keyboard keymap consolefont block plymouth-encrypt filesystems fsck)/' /etc/mkinitcpio.conf"
+    CHROOT_SCRIPT+=$'\n'"else"
+    CHROOT_SCRIPT+=$'\n'"  sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont block encrypt filesystems fsck)/' /etc/mkinitcpio.conf"
+    CHROOT_SCRIPT+=$'\n'"fi"
     CHROOT_SCRIPT+=$'\n'"mkinitcpio -P"
     CHROOT_SCRIPT+=$'\n'"sed -i \"s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\\\"cryptdevice=UUID=\$(blkid -s UUID -o value $P2):cryptroot root=/dev/mapper/cryptroot\\\"|\" /etc/default/grub"
 fi

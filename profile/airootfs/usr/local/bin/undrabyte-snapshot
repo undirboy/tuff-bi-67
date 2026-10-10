@@ -1,0 +1,232 @@
+#!/usr/bin/env bash
+#
+# Point-in-time snapshots of the system, so a bad update is one rollback away.
+#
+# On a Btrfs root it takes real, instant, copy-on-write snapshots of the @
+# subvolume into @snapshots (and uses snapper when it is set up). On anything
+# else it cannot snapshot the live filesystem, so it records a manifest - the
+# exact installed package set plus key configs - which `restore` can replay.
+#
+#   undrabyte-snapshot                 list snapshots
+#   undrabyte-snapshot create [note]   take a snapshot now, with an optional note
+#   undrabyte-snapshot auto            take one tagged "pre-update" (used by undrabyte-update)
+#   undrabyte-snapshot list            list snapshots
+#   undrabyte-snapshot prune           keep the newest few, delete the rest
+#   undrabyte-snapshot restore <id>    roll the root subvolume back to a snapshot (Btrfs)
+#   undrabyte-snapshot delete <id>     delete one snapshot
+#
+# Keep count defaults to 5; override with UNDRABYTE_SNAPSHOT_KEEP.
+
+set -euo pipefail
+
+BOLD=$'\033[1m'; RST=$'\033[0m'
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; DIM=$'\033[2m'
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+warn() { printf '%swarning:%s %s\n' "$YEL" "$RST" "$*" >&2; }
+ok()   { printf '%s  ok%s %s\n' "$GRN" "$RST" "$*"; }
+have() { command -v "$1" &>/dev/null; }
+
+readonly KEEP=${UNDRABYTE_SNAPSHOT_KEEP:-5}
+readonly SNAP_DIR=/.snapshots           # Btrfs: @snapshots mounted here, or a subvol
+readonly MANIFEST_DIR=/var/lib/undrabyte/snapshots
+
+# What kind of root are we on? This decides everything below.
+root_fstype() { findmnt -no FSTYPE / 2>/dev/null || echo unknown; }
+is_btrfs()    { [[ "$(root_fstype)" == btrfs ]]; }
+has_snapper() { have snapper && snapper -c root list &>/dev/null; }
+
+need_root() { [[ $EUID -eq 0 ]] || die "run as root: sudo undrabyte-snapshot $*"; }
+
+if [[ -e /run/archiso ]]; then
+    warn "this is the live medium: there is no persistent root to snapshot."
+    warn "snapshots make sense on an installed system (undrabyte-install)."
+fi
+
+# --------------------------------------------------------------- Btrfs ----
+
+btrfs_snapshot_subvol() {
+    # The @ subvolume is mounted at /. Snapshot it read-only into @snapshots.
+    local note=$1 tag=$2
+    local ts id dest
+    ts=$(date +%Y%m%d-%H%M%S)
+    id="${ts}${tag:+-$tag}"
+    install -d -m0755 "$SNAP_DIR"
+    dest="$SNAP_DIR/$id"
+    btrfs subvolume snapshot -r / "$dest" >/dev/null \
+        || die "btrfs snapshot failed (is / the @ subvolume, and $SNAP_DIR writable?)"
+    printf '%s\t%s\t%s\n' "$id" "$(date -u '+%Y-%m-%d %H:%M:%S UTC')" "${note:-}" \
+        >> "$SNAP_DIR/.index"
+    ok "Btrfs snapshot: $dest"
+}
+
+btrfs_list() {
+    printf '%sBtrfs snapshots in %s%s\n' "$BOLD" "$SNAP_DIR" "$RST"
+    if [[ -r "$SNAP_DIR/.index" ]]; then
+        printf '%-24s %-24s %s\n' "ID" "CREATED" "NOTE"
+        while IFS=$'\t' read -r id created note; do
+            printf '%-24s %-24s %s\n' "$id" "$created" "${note:-}"
+        done < "$SNAP_DIR/.index"
+    else
+        btrfs subvolume list -s / 2>/dev/null | awk '{print $NF}' | grep -F "${SNAP_DIR#/}" || printf '%s(none)%s\n' "$DIM" "$RST"
+    fi
+}
+
+btrfs_restore() {
+    local id=$1
+    local src="$SNAP_DIR/$id"
+    [[ -d $src ]] || die "no such snapshot: $id (see: undrabyte-snapshot list)"
+    warn "Rolling / back to $id. The current root becomes @_old_$id."
+    warn "This needs a reboot to take effect and should be done from a live/recovery session"
+    warn "if anything goes wrong. Continue? [y/N]"
+    read -r reply; [[ $reply == [yY]* ]] || die "cancelled"
+    # The correct, non-destructive Btrfs rollback: make a writable copy of the
+    # snapshot and swap subvolume names. We do the safe half here and tell the
+    # user the exact mount-and-swap step, rather than risk an in-place rename of
+    # the running root subvolume.
+    cat <<EOF
+
+To complete the rollback, boot the UndraByte live medium, then:
+
+  mount /dev/<root-partition> /mnt                 # the Btrfs top level (subvolid=5)
+  cd /mnt
+  mv @ @_old_$id
+  btrfs subvolume snapshot ${SNAP_DIR#/}/$id @      # writable copy of the snapshot -> new @
+  reboot
+
+Your old system is kept as @_old_$id; delete it once the rollback is confirmed good.
+EOF
+}
+
+btrfs_delete() {
+    local id=$1
+    local p="$SNAP_DIR/$id"
+    [[ -d $p ]] || die "no such snapshot: $id"
+    btrfs subvolume delete "$p" >/dev/null || die "could not delete $p"
+    [[ -r "$SNAP_DIR/.index" ]] && sed -i "/^$id\b/d" "$SNAP_DIR/.index" 2>/dev/null || true
+    ok "deleted $id"
+}
+
+btrfs_prune() {
+    local -a ids=()
+    [[ -r "$SNAP_DIR/.index" ]] || { ok "nothing to prune"; return 0; }
+    mapfile -t ids < <(cut -f1 "$SNAP_DIR/.index" | sort)
+    local n=${#ids[@]}
+    (( n <= KEEP )) && { ok "$n snapshot(s); keep limit is $KEEP, nothing to prune"; return 0; }
+    local drop=$(( n - KEEP )) i
+    info "keeping the newest $KEEP, deleting $drop older snapshot(s)"
+    for (( i = 0; i < drop; i++ )); do
+        btrfs_delete "${ids[i]}" || true
+    done
+}
+
+# ----------------------------------------------------------- non-Btrfs ----
+#
+# No instant snapshots without Btrfs. Record a manifest that `restore` can use
+# to put the package set back, which is what actually bites after a bad update.
+
+manifest_create() {
+    local note=$1 tag=$2 ts id dir
+    ts=$(date +%Y%m%d-%H%M%S)
+    id="${ts}${tag:+-$tag}"
+    dir="$MANIFEST_DIR/$id"
+    install -d -m0755 "$dir"
+    pacman -Qqe > "$dir/pkglist.explicit" 2>/dev/null || true
+    pacman -Qq  > "$dir/pkglist.all"      2>/dev/null || true
+    cp -a /etc/fstab "$dir/" 2>/dev/null || true
+    [[ -n $note ]] && printf '%s\n' "$note" > "$dir/note"
+    printf '%s\n' "$(date -u '+%Y-%m-%d %H:%M:%S UTC')" > "$dir/created"
+    ok "package manifest saved: $dir"
+    warn "this is not a filesystem snapshot - it records the package set, not your files."
+    warn "for true rollback, install UndraByte on Btrfs (undrabyte-install --fs btrfs)."
+}
+
+manifest_list() {
+    printf '%sPackage manifests in %s%s\n' "$BOLD" "$MANIFEST_DIR" "$RST"
+    [[ -d $MANIFEST_DIR ]] || { printf '%s(none)%s\n' "$DIM" "$RST"; return 0; }
+    local d
+    printf '%-24s %-24s %s\n' "ID" "CREATED" "NOTE"
+    for d in "$MANIFEST_DIR"/*/; do
+        [[ -d $d ]] || continue
+        local id created note
+        id=$(basename "$d")
+        created=$(cat "$d/created" 2>/dev/null || echo '?')
+        note=$(cat "$d/note" 2>/dev/null || echo '')
+        printf '%-24s %-24s %s\n' "$id" "$created" "$note"
+    done
+}
+
+manifest_restore() {
+    local id=$1; local dir="$MANIFEST_DIR/$id"
+    [[ -d $dir ]] || die "no such manifest: $id (see: undrabyte-snapshot list)"
+    [[ -r "$dir/pkglist.explicit" ]] || die "manifest $id has no package list"
+    info "this reinstalls exactly the explicitly-installed packages recorded in $id."
+    info "it does not remove packages added since, and does not touch your files."
+    warn "Continue? [y/N]"
+    read -r reply; [[ $reply == [yY]* ]] || die "cancelled"
+    pacman -S --needed --noconfirm - < "$dir/pkglist.explicit"
+    ok "package set from $id reinstalled"
+}
+
+manifest_delete() { local id=$1; [[ -d "$MANIFEST_DIR/$id" ]] || die "no such manifest: $id"; rm -rf "${MANIFEST_DIR:?}/$id"; ok "deleted $id"; }
+
+manifest_prune() {
+    [[ -d $MANIFEST_DIR ]] || { ok "nothing to prune"; return 0; }
+    local -a ids=()
+    mapfile -t ids < <(find "$MANIFEST_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+    local n=${#ids[@]}
+    (( n <= KEEP )) && { ok "$n manifest(s); keep limit is $KEEP"; return 0; }
+    local drop=$(( n - KEEP )) i
+    info "keeping the newest $KEEP, deleting $drop older manifest(s)"
+    for (( i = 0; i < drop; i++ )); do manifest_delete "${ids[i]}" || true; done
+}
+
+# ---------------------------------------------------------------- verbs ---
+
+cmd=${1:-list}
+[[ $# -gt 0 ]] && shift || true
+
+case $cmd in
+    create)
+        need_root create
+        note=${1:-}
+        if has_snapper; then info "snapper is configured; taking a snapper snapshot"
+            snapper -c root create -d "${note:-manual (undrabyte)}" && ok "snapper snapshot created"
+        elif is_btrfs; then btrfs_snapshot_subvol "$note" ""
+        else manifest_create "$note" ""; fi
+        ;;
+    auto)
+        need_root auto
+        if has_snapper; then snapper -c root create -c number -d "pre-update (undrabyte)" >/dev/null 2>&1 && ok "snapper pre-update snapshot" || true
+        elif is_btrfs; then btrfs_snapshot_subvol "automatic, before an update" "pre-update"
+        else manifest_create "automatic, before an update" "pre-update"; fi
+        ;;
+    list|ls|'')
+        if has_snapper; then snapper -c root list
+        elif is_btrfs; then btrfs_list
+        else manifest_list; fi
+        ;;
+    prune)
+        need_root prune
+        if is_btrfs && ! has_snapper; then btrfs_prune
+        elif ! is_btrfs; then manifest_prune
+        else ok "snapper manages its own retention (see /etc/snapper/configs/root)"; fi
+        ;;
+    restore|rollback)
+        need_root restore
+        [[ $# -ge 1 ]] || die "usage: undrabyte-snapshot restore <id>"
+        if is_btrfs && ! has_snapper; then btrfs_restore "$1"
+        elif ! is_btrfs; then manifest_restore "$1"
+        else die "with snapper, roll back with: snapper -c root undochange <id>..0  (or snapper rollback)"; fi
+        ;;
+    delete|rm)
+        need_root delete
+        [[ $# -ge 1 ]] || die "usage: undrabyte-snapshot delete <id>"
+        if is_btrfs && ! has_snapper; then btrfs_delete "$1"
+        elif ! is_btrfs; then manifest_delete "$1"
+        else snapper -c root delete "$1" && ok "deleted $1"; fi
+        ;;
+    -h|--help|help) sed -n '3,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+    *) die "unknown command: $cmd (try --help)" ;;
+esac

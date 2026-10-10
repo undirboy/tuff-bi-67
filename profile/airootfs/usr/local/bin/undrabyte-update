@@ -9,9 +9,10 @@
 # only then upgrades. It also upgrades the AUR packages (via paru) when an
 # unprivileged builder is available.
 #
-#   undrabyte-update                 keyring -> mirrors -> pacman -Syu [-> AUR]
+#   undrabyte-update                 snapshot -> keyring -> mirrors -> pacman -Syu [-> AUR]
 #   undrabyte-update --no-mirrors    skip the reflector mirror ranking
 #   undrabyte-update --no-aur        skip the AUR upgrade
+#   undrabyte-update --no-snapshot   skip the pre-update snapshot
 #   undrabyte-update --mirrors-only  only re-rank the mirrors, nothing else
 
 set -euo pipefail
@@ -26,13 +27,15 @@ ok()   { printf '%s  ok%s %s\n' "$GRN" "$RST" "$*"; }
 
 DO_MIRRORS=1
 DO_AUR=1
+DO_SNAPSHOT=1
 MIRRORS_ONLY=0
 while [[ $# -gt 0 ]]; do
     case $1 in
         --no-mirrors)   DO_MIRRORS=0; shift ;;
         --no-aur)       DO_AUR=0; shift ;;
+        --no-snapshot)  DO_SNAPSHOT=0; shift ;;
         --mirrors-only) MIRRORS_ONLY=1; shift ;;
-        -h|--help)      sed -n '3,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help)      sed -n '3,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *)              die "unknown argument: $1 (try --help)" ;;
     esac
 done
@@ -86,12 +89,20 @@ fi
 # 2. Mirrors (optional).
 (( DO_MIRRORS )) && rank_mirrors
 
-# 3. The actual upgrade. Interactive on purpose: a full system upgrade is not
+# 3. A rollback point, before anything is replaced. Best-effort: on a Btrfs
+#    root this is an instant snapshot; elsewhere it records the package set.
+#    An installed, non-live system only - snapshotting the live medium is moot.
+if (( DO_SNAPSHOT )) && [[ ! -e /run/archiso ]] && command -v undrabyte-snapshot &>/dev/null; then
+    info "taking a pre-update snapshot (undrabyte-snapshot auto)"
+    undrabyte-snapshot auto || warn "could not take a snapshot; continuing with the upgrade"
+fi
+
+# 4. The actual upgrade. Interactive on purpose: a full system upgrade is not
 #    something to run blind with --noconfirm.
 info "upgrading the system (pacman -Syu)"
 pacman -Syu
 
-# 4. AUR, when there is an unprivileged builder and paru is present. makepkg
+# 5. AUR, when there is an unprivileged builder and paru is present. makepkg
 #    refuses to run as root, so this needs the user who invoked sudo.
 if (( DO_AUR )) && command -v paru &>/dev/null; then
     builder=${SUDO_USER:-}

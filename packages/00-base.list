@@ -22,6 +22,8 @@ memtest86+
 memtest86+-efi
 reflector
 squashfs-tools
+plymouth    # branded boot splash (undrabyte-install wires it on installed systems)
+sbctl       # Secure Boot with your own keys (undrabyte-secureboot)
 
 # filesystems & storage
 btrfs-progs
@@ -88,6 +90,7 @@ tor
 torsocks
 
 # Small CLI helpers used by the undrabyte-* tools (all tiny):
-qrencode   # undrabyte-share: scannable QR code for the download link
-xclip      # undrabyte-passgen -c: copy generated password to the clipboard
-fastfetch  # undrabyte-doctor / `sysinfo`: quick system summary
+qrencode       # undrabyte-share: scannable QR code for the download link
+xclip          # undrabyte-passgen -c: copy generated password to the clipboard
+fastfetch      # undrabyte-doctor / `sysinfo`: quick system summary
+pacman-contrib # undrabyte-cleanup: paccache, for trimming the package cache

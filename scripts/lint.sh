@@ -70,7 +70,7 @@ done
 pass "manifest syntax"
 
 log "edition matrix"
-for edition in full security dev gaming lite minimal; do
+for edition in full security dev creator gaming server lite minimal; do
     for desktop in kde xfce none; do
         mapfile -t lists < <(edition_lists "$edition" "$desktop" "$ROOT/packages" 2>/dev/null)
         if (( ${#lists[@]} == 0 )); then
@@ -120,7 +120,7 @@ check_conflicts() {
 }
 
 conflict_failures=0
-for edition in full security dev gaming lite minimal; do
+for edition in full security dev creator gaming server lite minimal; do
     for desktop in kde xfce none; do
         mapfile -t lists < <(edition_lists "$edition" "$desktop" "$ROOT/packages" 2>/dev/null)
         resolve_packages "${lists[@]}" 2>/dev/null > /tmp/undrabyte-lint-set.$$

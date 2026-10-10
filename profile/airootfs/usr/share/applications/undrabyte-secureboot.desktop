@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Secure Boot Setup
+GenericName=Secure Boot
+Comment=Enroll your own Secure Boot keys and sign the bootloader and kernel
+Exec=sudo undrabyte-secureboot status
+Icon=security-high
+Terminal=true
+Categories=System;Settings;Security;X-UndraByte;
+Keywords=secure;boot;secureboot;sbctl;keys;uefi;sign;

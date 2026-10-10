@@ -1,0 +1,121 @@
+name: smoke-boot
+
+# A cheap guard against shipping an ISO that cannot boot. It builds the
+# smallest edition and then checks the image two ways:
+#
+#   1. Structure (the hard gate): the ISO must be a valid hybrid image that
+#      actually contains the kernel, the archiso initramfs, the squashfs root
+#      and the UEFI bootloader. A build that silently drops any of these is
+#      caught here in seconds, long before anyone writes it to a stick.
+#
+#   2. A best-effort QEMU boot (informational): GitHub runners have no KVM, so
+#      a full TCG boot to the desktop would take many minutes and is not a
+#      reliable pass/fail signal. We give it a bounded run and look for the
+#      firmware/bootloader coming up; a timeout here does NOT fail the job.
+#
+# Run it by hand, and on changes that can affect boot.
+
+on:
+  workflow_dispatch:
+    inputs:
+      edition:
+        description: 'Edition to smoke-test'
+        type: choice
+        default: minimal
+        options: [minimal, lite, server]
+  pull_request:
+    paths:
+      - 'profile/**'
+      - 'packages/00-base.list'
+      - 'scripts/**'
+      - '.github/workflows/smoke-boot.yml'
+
+jobs:
+  smoke:
+    name: build + verify bootability
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged
+      volumes:
+        - /mnt:/mnt
+    steps:
+      - name: Install build + inspection tools
+        run: |
+          pacman -Sy --noconfirm --needed archiso git grub syslinux edk2-shell \
+            libarchive qemu-base edk2-ovmf
+
+      - uses: actions/checkout@v4
+
+      - name: Build the ${{ inputs.edition || 'minimal' }} ISO
+        run: |
+          ./scripts/build-iso.sh \
+            --edition '${{ inputs.edition || 'minimal' }}' \
+            --desktop none \
+            --work /mnt/undrabyte-work \
+            --vm-only
+
+      - name: Locate the ISO
+        id: iso
+        run: |
+          iso="$(find out -maxdepth 1 -name 'undrabyte-*.iso' | head -1)"
+          [ -n "$iso" ] || { echo "no ISO produced"; exit 1; }
+          echo "path=$iso" >> "$GITHUB_OUTPUT"
+          ls -lh "$iso"
+
+      - name: Verify ISO structure (hard gate)
+        env:
+          ISO: ${{ steps.iso.outputs.path }}
+        run: |
+          set -euo pipefail
+          echo "listing ISO contents"
+          listing="$(bsdtar -tf "$ISO")"
+
+          need() {
+            if printf '%s\n' "$listing" | grep -qiE "$1"; then
+              echo "  ok   $1"
+            else
+              echo "  MISS $1"; return 1
+            fi
+          }
+
+          rc=0
+          need 'undrabyte/boot/x86_64/vmlinuz-linux'       || rc=1
+          need 'undrabyte/boot/x86_64/initramfs-linux.img' || rc=1
+          need 'undrabyte/x86_64/airootfs.sfs'             || rc=1
+          # UEFI bootloader (GRUB standalone) under EFI/BOOT.
+          need 'EFI/BOOT/BOOTX64.EFI'                      || rc=1
+          # BIOS bootloader (syslinux / isolinux) present too.
+          need 'boot/syslinux/'                            || rc=1
+
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::the ISO is missing a required boot component"
+            exit 1
+          fi
+          echo "all required boot components are present"
+
+      - name: Best-effort QEMU boot (informational, never fails the job)
+        continue-on-error: true
+        env:
+          ISO: ${{ steps.iso.outputs.path }}
+        run: |
+          set -uo pipefail
+          ovmf="$(find / -name 'OVMF_CODE*.fd' 2>/dev/null | head -1)"
+          echo "OVMF: ${ovmf:-not found}"
+          serial=serial.log
+          # Bounded TCG boot. We are not asserting a desktop here (no KVM); we
+          # just want to see firmware + the bootloader start without an
+          # immediate firmware-level reject.
+          timeout 240 qemu-system-x86_64 \
+            -machine q35 -m 2048 -smp 2 \
+            ${ovmf:+-drive if=pflash,format=raw,readonly=on,file="$ovmf"} \
+            -cdrom "$ISO" -boot d \
+            -nographic -serial file:"$serial" \
+            -no-reboot || true
+          echo "----- serial tail -----"
+          tail -n 40 "$serial" 2>/dev/null || echo "(no serial output captured)"
+          if grep -qiE 'undrabyte|syslinux|grub|Linux version|archiso' "$serial" 2>/dev/null; then
+            echo "boot firmware/loader produced expected output"
+          else
+            echo "note: no recognisable boot output over serial in the time budget (expected without KVM)"
+          fi
