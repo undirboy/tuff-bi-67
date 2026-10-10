@@ -5,8 +5,28 @@ different machines: **security work**, **software development**, and **gaming** 
 designed from the start to run inside a virtual machine.
 
 UndraByte is an Arch-based live ISO built with [archiso](https://gitlab.archlinux.org/archlinux/archiso).
-This repository is the *recipe*, not the image: you build the ISO yourself, so
-you know exactly what is in it and can change any of it.
+You can grab a prebuilt image, or build it yourself from this recipe.
+
+## ⬇ Download (the easy way)
+
+Pre-built ISOs for every edition are published as
+[GitHub Releases](https://github.com/undirboy/tuff-bi-67/releases). One command
+downloads the edition you pick, verifies it, and can write it to a USB stick or
+boot it in a VM:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/undirboy/tuff-bi-67/main/scripts/get-undrabyte.sh
+bash get-undrabyte.sh                         # pick an edition, download + verify
+sudo bash get-undrabyte.sh --edition lite --write /dev/sdX   # … or write to USB
+```
+
+See **[docs/DOWNLOADS.md](docs/DOWNLOADS.md)** for the full edition list, direct
+links, checksums/signatures and manual steps.
+
+## Build it yourself
+
+This repository is the *recipe*, not the image, so you know exactly what is in
+it and can change any of it:
 
 ```
 git clone https://github.com/undirboy/tuff-bi-67 && cd tuff-bi-67
@@ -160,6 +180,7 @@ times and disk space.
 
 ## Documentation
 
+- [DOWNLOADS.md](docs/DOWNLOADS.md) — download any edition, verify it, write to USB or boot a VM
 - [BUILDING.md](docs/BUILDING.md) — build the ISO, on Arch or anywhere else
 - [DESKTOP.md](docs/DESKTOP.md) — using the desktop with no commands (a Windows cheat sheet)
 - [LAUNCHER.md](docs/LAUNCHER.md) — the launcher, dark mode, desktop defaults
