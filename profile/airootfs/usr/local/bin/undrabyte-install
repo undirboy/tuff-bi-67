@@ -315,6 +315,18 @@ run cp -r "$SHARE" "$TARGET/usr/local/share/" 2>/dev/null || true
 for d in /usr/share/applications/undrabyte*.desktop; do
     [[ -e $d ]] && run install -Dm0644 "$d" "$TARGET$d"
 done
+
+# The branded Plymouth boot splash theme. It is not shipped as an overlay file
+# the owning package also provides, so copy the whole theme dir here; the
+# chroot step below selects it and wires the initramfs hook.
+if [[ -d /usr/share/plymouth/themes/undrabyte ]]; then
+    if (( DRY_RUN )); then
+        printf '%s  [dry-run] cp -r /usr/share/plymouth/themes/undrabyte %s/usr/share/plymouth/themes/%s\n' "$DIM" "$TARGET" "$RST"
+    else
+        mkdir -p "$TARGET/usr/share/plymouth/themes"
+        cp -r /usr/share/plymouth/themes/undrabyte "$TARGET/usr/share/plymouth/themes/"
+    fi
+fi
 if [[ -d /etc/skel ]]; then
     if (( DRY_RUN )); then
         printf '%s  [dry-run] cp -r /etc/skel/. %s/etc/skel/%s\n' "$DIM" "$TARGET" "$RST"
@@ -347,6 +359,13 @@ if [ -x /usr/bin/plymouth ]; then
     grep -q '\bplymouth\b' /etc/mkinitcpio.conf || \
         sed -i 's/\(^HOOKS=.*\bkms\b\)/\1 plymouth/' /etc/mkinitcpio.conf
     sed -i 's/^#\?GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"/' /etc/default/grub
+    # Select the UndraByte theme when it was copied in; otherwise leave the
+    # distro default. Writing the config in the chroot avoids the overlay
+    # file-collision the live build would hit with a package-owned path.
+    if [ -d /usr/share/plymouth/themes/undrabyte ]; then
+        install -d /etc/plymouth
+        printf '[Daemon]\nTheme=undrabyte\nShowDelay=0\n' > /etc/plymouth/plymouthd.conf
+    fi
 fi
 
 mkinitcpio -P
