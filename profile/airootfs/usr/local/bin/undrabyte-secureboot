@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+#
+# Secure Boot, the way you can actually use on your own machine: your own keys.
+#
+# UndraByte does not ship a vendor-signed shim (that needs a paid Microsoft
+# signature and a release process). Instead this enrolls YOUR keys, generated
+# on your machine, and signs the bootloader and kernel with them - so Secure
+# Boot stays ON and verifies a chain you control. It uses `sbctl`.
+#
+# The one-time flow:
+#   1. In firmware (BIOS/UEFI setup), put Secure Boot into "Setup Mode"
+#      (often: clear/delete the existing Secure Boot keys).
+#   2. Boot UndraByte, then:  sudo undrabyte-secureboot setup
+#   3. Reboot with Secure Boot ENABLED.
+#
+#   undrabyte-secureboot status     where Secure Boot and your keys stand
+#   undrabyte-secureboot setup      create keys, enroll them, sign everything
+#   undrabyte-secureboot sign       (re)sign the bootloader + kernels now
+#   undrabyte-secureboot verify     list what is signed and what is not
+#
+# Signing an installed system. Not for the live medium (nothing persists).
+
+set -euo pipefail
+
+BOLD=$'\033[1m'; RST=$'\033[0m'
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; DIM=$'\033[2m'
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+warn() { printf '%swarning:%s %s\n' "$YEL" "$RST" "$*" >&2; }
+ok()   { printf '%s  ok%s %s\n' "$GRN" "$RST" "$*"; }
+have() { command -v "$1" &>/dev/null; }
+
+need_root() { [[ $EUID -eq 0 ]] || die "run as root: sudo undrabyte-secureboot $*"; }
+need_sbctl() { have sbctl || die "sbctl is not installed (sudo pacman -S --needed sbctl)"; }
+
+sb_enabled() {
+    # bootctl reports the live Secure Boot state portably.
+    if have bootctl; then bootctl status 2>/dev/null | grep -qi 'Secure Boot: enabled'; return; fi
+    have mokutil && mokutil --sb-state 2>/dev/null | grep -qi 'enabled'
+}
+
+setup_mode() {
+    if have sbctl; then sbctl status 2>/dev/null | grep -qi 'setup mode.*enabled'; return; fi
+    have mokutil && mokutil --sb-state 2>/dev/null | grep -qi 'setup mode'
+}
+
+cmd_status() {
+    printf '%sSecure Boot%s\n' "$BOLD" "$RST"
+    if [[ ! -d /sys/firmware/efi ]]; then
+        warn "this machine booted in legacy BIOS mode - Secure Boot does not apply."
+        return 0
+    fi
+    if sb_enabled; then ok "Secure Boot is ENABLED"; else printf '  %sSecure Boot is disabled%s\n' "$DIM" "$RST"; fi
+    if setup_mode; then printf '  %sfirmware is in Setup Mode (ready to enroll your keys)%s\n' "$YEL" "$RST"; fi
+    if have sbctl; then
+        printf '\n%ssbctl status%s\n' "$BOLD" "$RST"; sbctl status 2>/dev/null || true
+    else
+        printf '  %ssbctl not installed yet - `setup` will need it%s\n' "$DIM" "$RST"
+    fi
+}
+
+cmd_setup() {
+    need_root setup
+    need_sbctl
+    [[ -d /sys/firmware/efi ]] || die "not a UEFI system; Secure Boot does not apply"
+    [[ -e /run/archiso ]] && die "this is the live medium; run this on an installed system"
+
+    if ! setup_mode; then
+        warn "firmware is NOT in Setup Mode."
+        warn "Enter firmware setup, clear/delete the Secure Boot keys to enter Setup Mode,"
+        warn "boot back here, and re-run:  sudo undrabyte-secureboot setup"
+        die  "cannot enroll keys until the firmware is in Setup Mode"
+    fi
+
+    info "creating your Secure Boot keys (stored under /usr/share/secureboot)"
+    sbctl create-keys
+
+    info "enrolling your keys, plus Microsoft's (so firmware/option-ROMs still verify)"
+    # -m keeps the Microsoft keys enrolled alongside yours; without them some
+    # firmware and discrete-GPU option ROMs refuse to initialise.
+    sbctl enroll-keys -m || die "enroll failed (is the firmware still in Setup Mode?)"
+
+    cmd_sign
+
+    info "setting up a pacman hook so new kernels are signed automatically"
+    enable_pacman_hook
+
+    printf '\n'
+    ok "done. Reboot, then turn Secure Boot ON in firmware."
+    info "after reboot, check with: undrabyte-secureboot status"
+}
+
+cmd_sign() {
+    need_root sign
+    need_sbctl
+    info "signing the bootloader and kernels (sbctl sign-all)"
+    # sign-all signs everything sbctl has been told to track; first make sure
+    # the usual suspects are tracked, ignoring "already signed/tracked" noise.
+    local f
+    for f in /boot/vmlinuz-* /efi/EFI/*/grubx64.efi /boot/EFI/*/grubx64.efi \
+             /efi/EFI/BOOT/BOOTX64.EFI /boot/EFI/BOOT/BOOTX64.EFI \
+             /boot/grub/x86_64-efi/core.efi; do
+        [[ -e $f ]] && sbctl sign -s "$f" >/dev/null 2>&1 || true
+    done
+    sbctl sign-all || warn "sign-all reported a problem; check `sbctl verify`"
+    ok "signing pass complete"
+}
+
+cmd_verify() {
+    need_sbctl
+    info "sbctl verify"
+    sbctl verify || warn "some files are unsigned (run: sudo undrabyte-secureboot sign)"
+}
+
+enable_pacman_hook() {
+    # sbctl ships its own hook on most setups; add one only if missing, so a
+    # kernel upgrade never leaves an unsigned image that fails to boot.
+    local hook=/etc/pacman.d/hooks/zz-undrabyte-sbctl.hook
+    [[ -e /usr/share/libalpm/hooks/zz-sbctl.hook ]] && { ok "sbctl's own pacman hook is present"; return 0; }
+    install -d /etc/pacman.d/hooks
+    cat > "$hook" <<'EOF'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Path
+Target = usr/lib/modules/*/vmlinuz
+Target = boot/vmlinuz-*
+Target = usr/lib/systemd/boot/efi/*
+Target = boot/grub/x86_64-efi/core.efi
+
+[Action]
+Description = Signing kernel and bootloader for Secure Boot (UndraByte)
+When = PostTransaction
+Exec = /usr/bin/sbctl sign-all
+Depends = sbctl
+EOF
+    ok "installed pacman signing hook: $hook"
+}
+
+case ${1:-status} in
+    status)          cmd_status ;;
+    setup)           cmd_setup ;;
+    sign)            cmd_sign ;;
+    verify)          cmd_verify ;;
+    -h|--help|help)  sed -n '3,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+    *)               die "unknown command: ${1} (try --help)" ;;
+esac

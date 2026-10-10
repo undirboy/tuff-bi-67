@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Make USB Persistent
+GenericName=Live persistence
+Comment=Keep your files and changes across reboots on a live USB stick
+Exec=undrabyte-persist status
+Icon=drive-removable-media-usb
+Terminal=true
+Categories=System;Settings;X-UndraByte;
+Keywords=persist;persistence;save;usb;live;cow;overlay;keep;

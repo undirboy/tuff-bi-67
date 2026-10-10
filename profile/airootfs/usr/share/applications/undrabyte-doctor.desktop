@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=System Health Check
+GenericName=Diagnostics
+Comment=Is the system tuned, online and healthy? Plain-language checks and fixes.
+Exec=undrabyte-doctor
+Icon=utilities-system-monitor
+Terminal=true
+Categories=System;Settings;X-UndraByte;
+Keywords=health;doctor;diagnose;check;slow;network;tune;fix;

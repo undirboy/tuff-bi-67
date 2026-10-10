@@ -1,0 +1,79 @@
+name: build-iso
+
+# Builds any edition, including `full`. A full build needs ~25 GB of scratch,
+# more than the container's root overlay has, so mkarchiso's work directory is
+# put on the runner's large ephemeral disk (/mnt, ~70 GB on GitHub-hosted
+# runners), bind-mounted into the build container. The final ISO still lands in
+# the workspace's out/ for the upload step.
+
+on:
+  workflow_dispatch:
+    inputs:
+      edition:
+        description: 'Package edition'
+        type: choice
+        default: minimal
+        options: [minimal, lite, server, dev, creator, security, gaming, full]
+      desktop:
+        description: 'Desktop environment'
+        type: choice
+        default: none
+        options: [none, xfce, kde]
+      upload:
+        description: 'Upload the ISO as an artifact (large)'
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: mkarchiso
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged        # mkarchiso needs loop devices and mount
+      volumes:
+        - /mnt:/mnt                 # the runner's big ephemeral disk, for scratch
+    steps:
+      - name: Scratch space
+        # The container's root overlay is too small for a full build. The
+        # runner's /mnt (bind-mounted above) has ~70 GB; put mkarchiso's work
+        # directory there. (The old `rm -rf /usr/share/dotnet ...` dance freed
+        # nothing here: those paths live on the host, not inside this Arch
+        # container, so the build could only ever use the cramped overlay.)
+        run: |
+          mkdir -p /mnt/undrabyte-work
+          echo "root overlay:"; df -h /
+          echo "scratch (/mnt):"; df -h /mnt
+
+      - name: Install the build tools
+        # grub is only an *optional* dependency of archiso, and the profile's
+        # uefi-x64.grub.* boot modes need grub-mkstandalone. edk2-shell
+        # provides the UEFI shell the GRUB menu offers.
+        run: pacman -Sy --noconfirm --needed archiso git grub syslinux edk2-shell
+
+      - uses: actions/checkout@v4
+
+      # No separate verification step: build-iso.sh pre-flights every package
+      # name against the repositories itself, using the staged pacman.conf,
+      # before mkarchiso starts.
+      - name: Build
+        run: |
+          ./scripts/build-iso.sh \
+            --edition '${{ inputs.edition }}' \
+            --desktop '${{ inputs.desktop }}' \
+            --work /mnt/undrabyte-work \
+            --vm-only
+
+      - name: Report
+        run: |
+          ls -lh out/
+          sha256sum out/*.iso | tee out/SHA256SUMS
+
+      - name: Upload the ISO
+        if: ${{ inputs.upload }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: undrabyte-${{ inputs.edition }}-${{ inputs.desktop }}
+          path: out/
+          retention-days: 7
+          compression-level: 0

@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+#
+# Keep UndraByte current, the safe way.
+#
+# A rolling-release live image ages the moment it is built: its copy of
+# archlinux-keyring falls behind, and then a plain `pacman -Syu` fails to
+# verify freshly downloaded packages ("signature is unknown trust"). So this
+# refreshes the keyring FIRST, optionally re-ranks the mirrors for speed, and
+# only then upgrades. It also upgrades the AUR packages (via paru) when an
+# unprivileged builder is available.
+#
+#   undrabyte-update                 snapshot -> keyring -> mirrors -> pacman -Syu [-> AUR]
+#   undrabyte-update --no-mirrors    skip the reflector mirror ranking
+#   undrabyte-update --no-aur        skip the AUR upgrade
+#   undrabyte-update --no-snapshot   skip the pre-update snapshot
+#   undrabyte-update --mirrors-only  only re-rank the mirrors, nothing else
+
+set -euo pipefail
+
+BOLD=$'\033[1m'; RST=$'\033[0m'
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+warn() { printf '%swarning:%s %s\n' "$YEL" "$RST" "$*" >&2; }
+ok()   { printf '%s  ok%s %s\n' "$GRN" "$RST" "$*"; }
+
+DO_MIRRORS=1
+DO_AUR=1
+DO_SNAPSHOT=1
+MIRRORS_ONLY=0
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --no-mirrors)   DO_MIRRORS=0; shift ;;
+        --no-aur)       DO_AUR=0; shift ;;
+        --no-snapshot)  DO_SNAPSHOT=0; shift ;;
+        --mirrors-only) MIRRORS_ONLY=1; shift ;;
+        -h|--help)      sed -n '3,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *)              die "unknown argument: $1 (try --help)" ;;
+    esac
+done
+
+[[ $EUID -eq 0 ]] || die "run as root: sudo undrabyte-update"
+
+online() {
+    # A quick reachability check so a mirror re-rank or keyring sync does not
+    # hang for minutes on an offline box.
+    curl -fsS --max-time 5 https://archlinux.org/ -o /dev/null 2>/dev/null \
+        || ping -c1 -W2 archlinux.org &>/dev/null
+}
+
+if [[ -e /run/archiso ]]; then
+    warn "this is the live medium: updates apply to RAM only and vanish at reboot."
+    warn "install to disk (undrabyte-install) or set up persistence (undrabyte-persist) to keep them."
+fi
+
+if ! online; then
+    die "no network. Connect first (NetworkManager applet, or nmtui), then retry."
+fi
+
+rank_mirrors() {
+    command -v reflector &>/dev/null || { warn "reflector not installed; keeping the current mirrorlist"; return 0; }
+    info "ranking the fastest HTTPS mirrors (reflector)"
+    # Keep a backup the first time, so a bad run is recoverable.
+    [[ -f /etc/pacman.d/mirrorlist.undrabyte-bak ]] \
+        || cp -a /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.undrabyte-bak 2>/dev/null || true
+    if reflector --latest 20 --protocol https --sort rate \
+                 --save /etc/pacman.d/mirrorlist 2>/dev/null; then
+        ok "mirrorlist updated"
+    else
+        warn "reflector failed; restoring the previous mirrorlist"
+        cp -a /etc/pacman.d/mirrorlist.undrabyte-bak /etc/pacman.d/mirrorlist 2>/dev/null || true
+    fi
+}
+
+if (( MIRRORS_ONLY )); then
+    rank_mirrors
+    exit 0
+fi
+
+# 1. Keyring first. This is the step that makes the difference on old media.
+info "refreshing archlinux-keyring (before upgrading anything else)"
+if pacman -Sy --noconfirm --needed archlinux-keyring; then
+    ok "keyring current"
+else
+    warn "could not refresh the keyring; the upgrade may fail to verify signatures"
+fi
+
+# 2. Mirrors (optional).
+(( DO_MIRRORS )) && rank_mirrors
+
+# 3. A rollback point, before anything is replaced. Best-effort: on a Btrfs
+#    root this is an instant snapshot; elsewhere it records the package set.
+#    An installed, non-live system only - snapshotting the live medium is moot.
+if (( DO_SNAPSHOT )) && [[ ! -e /run/archiso ]] && command -v undrabyte-snapshot &>/dev/null; then
+    info "taking a pre-update snapshot (undrabyte-snapshot auto)"
+    undrabyte-snapshot auto || warn "could not take a snapshot; continuing with the upgrade"
+fi
+
+# 4. The actual upgrade. Interactive on purpose: a full system upgrade is not
+#    something to run blind with --noconfirm.
+info "upgrading the system (pacman -Syu)"
+pacman -Syu
+
+# 5. AUR, when there is an unprivileged builder and paru is present. makepkg
+#    refuses to run as root, so this needs the user who invoked sudo.
+if (( DO_AUR )) && command -v paru &>/dev/null; then
+    builder=${SUDO_USER:-}
+    if [[ -n $builder && $builder != root ]]; then
+        info "upgrading AUR packages (paru -Sua) as $builder"
+        sudo -u "$builder" paru -Sua || warn "the AUR upgrade reported a problem"
+    else
+        warn "no unprivileged user to build AUR packages; skipping (run from a normal login with sudo)"
+    fi
+fi
+
+printf '\n%sUp to date.%s\n' "$GRN" "$RST"

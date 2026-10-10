@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+#
+# Make a live UndraByte USB remember changes across reboots.
+#
+# archiso supports a copy-on-write (cow) overlay: if the boot line carries
+# cow_label=<LABEL>, the initramfs mounts the filesystem with that label on
+# top of the read-only squashfs, and everything written to the live system
+# lands there instead of in RAM. This tool prepares such a filesystem, and
+# the boot menu already has a "persistent" entry that looks for the label
+# UNDRABYTE_COW.
+#
+# You need a second writable area: either free space / a spare partition on
+# the same USB stick, or a second USB stick. This tool formats ONE partition
+# you name as the persistence store - that erases it - so it asks first.
+#
+#   undrabyte-persist status                  is persistence set up / active?
+#   undrabyte-persist list                    show candidate partitions
+#   undrabyte-persist setup /dev/sdXN         format that partition as the store
+#   undrabyte-persist setup /dev/sdXN --yes   skip the confirmation prompt
+#
+# After setup, reboot and pick "UndraByte Linux (persistent)" from the menu.
+
+set -euo pipefail
+
+readonly LABEL=UNDRABYTE_COW
+
+BOLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; CYN=$'\033[36m'
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+warn() { printf '%swarning:%s %s\n' "$YEL" "$RST" "$*" >&2; }
+ok()   { printf '%s  ok%s %s\n' "$GRN" "$RST" "$*"; }
+
+usage() { sed -n '3,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
+cow_present() { blkid -L "$LABEL" &>/dev/null; }
+cow_active()  { grep -qw cow_label /proc/cmdline && grep -q "cow_label=$LABEL" /proc/cmdline; }
+
+# The device the live medium itself is on - never offer to format that.
+live_device() {
+    local src
+    src="$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null \
+        || findmnt -n -o SOURCE / 2>/dev/null)"
+    [[ -n $src ]] && lsblk -ndo PKNAME "$src" 2>/dev/null
+}
+
+cmd_status() {
+    printf '%sPersistence%s\n\n' "$BOLD" "$RST"
+    printf '  %-20s %s\n' "live medium" "$( [[ -e /run/archiso ]] && echo yes || echo 'no (installed system)')"
+    if cow_present; then
+        local dev; dev="$(blkid -L "$LABEL")"
+        printf '  %-20s %s%s%s (%s)\n' "store ($LABEL)" "$GRN" "found" "$RST" "$dev"
+    else
+        printf '  %-20s %snot set up%s - run: sudo undrabyte-persist setup /dev/sdXN\n' "store ($LABEL)" "$YEL" "$RST"
+    fi
+    if cow_active; then
+        printf '  %-20s %sactive%s - changes are being saved\n' "this boot" "$GRN" "$RST"
+    else
+        printf '  %-20s %snot active%s - boot the "persistent" menu entry to use it\n' "this boot" "$YEL" "$RST"
+    fi
+}
+
+cmd_list() {
+    local live; live="$(live_device || true)"
+    info "candidate partitions (the live medium${live:+, /dev/$live,} is excluded)"
+    printf '%s' "$DIM"
+    lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINT
+    printf '%s\n' "$RST"
+    printf 'Pick an empty partition (or one you do not mind erasing) and run:\n'
+    printf '  %ssudo undrabyte-persist setup /dev/sdXN%s\n' "$CYN" "$RST"
+    printf 'No spare partition? Create one with gparted, or dedicate a second USB stick.\n'
+}
+
+cmd_setup() {
+    [[ $EUID -eq 0 ]] || die "run as root: sudo undrabyte-persist setup $*"
+    local dev=${1:-}; local assume_yes=0
+    [[ ${2:-} == --yes ]] && assume_yes=1
+    [[ -n $dev ]] || { usage >&2; die "name the partition, e.g. /dev/sdb1"; }
+    [[ -b $dev ]] || die "$dev is not a block device (see: undrabyte-persist list)"
+
+    # Refuse to touch the medium we booted from.
+    local live base
+    live="$(live_device || true)"
+    base="$(lsblk -ndo PKNAME "$dev" 2>/dev/null || true)"
+    if [[ -n $live && ( $base == "$live" || $dev == *"$live"* ) ]]; then
+        die "$dev is on the live boot medium ($live). Use a different disk/partition so you cannot corrupt the running system."
+    fi
+    # Refuse a mounted target.
+    if findmnt -n "$dev" &>/dev/null; then
+        die "$dev is mounted. Unmount it first: sudo umount $dev"
+    fi
+
+    printf '%sAbout to ERASE %s and format it as the persistence store (ext4, label %s).%s\n' \
+        "$YEL" "$dev" "$LABEL" "$RST"
+    lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL "$dev" 2>/dev/null | sed 's/^/    /'
+    if (( ! assume_yes )); then
+        printf 'Type %sERASE%s to continue: ' "$BOLD" "$RST"
+        local reply; read -r reply
+        [[ $reply == ERASE ]] || die "aborted - nothing was changed"
+    fi
+
+    info "formatting $dev as ext4, label $LABEL"
+    mkfs.ext4 -F -L "$LABEL" "$dev" >/dev/null
+    ok "persistence store ready on $dev"
+
+    cat <<EOF
+
+${GRN}Done.${RST} Reboot and choose ${BOLD}"UndraByte Linux (persistent)"${RST} from the
+boot menu. From then on your files, installed packages and settings are kept
+on $dev instead of vanishing at shutdown.
+
+  - To go back to a clean, throwaway session, just boot a normal menu entry.
+  - To wipe the saved state, re-run this setup (it reformats the store).
+EOF
+}
+
+case ${1:-status} in
+    status)      cmd_status ;;
+    list)        cmd_list ;;
+    setup)       shift; cmd_setup "$@" ;;
+    -h|--help)   usage ;;
+    *)           usage >&2; die "unknown command: $1" ;;
+esac

@@ -1,0 +1,192 @@
+name: publish-release
+
+# Repackage an already-built ISO artifact as a GitHub Release asset, which
+# downloads from GitHub's CDN as a direct, resumable file (no zip, no Actions
+# artifact auth path). Better for slow or flaky connections.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'The build-iso run ID whose artifact to publish'
+        required: true
+      artifact:
+        description: 'Artifact name'
+        default: undrabyte-lite-xfce
+      tag:
+        description: 'Release tag'
+        default: iso-latest
+      make_torrent:
+        description: 'Also attach a .torrent (GitHub CDN as web seed, experimental)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the built ISO from the given run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p iso
+          gh run download '${{ inputs.run_id }}' -R '${{ github.repository }}' \
+             -n '${{ inputs.artifact }}' -D iso
+          ls -lh iso/
+
+      - name: Publish (or update) the release with the ISO attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          ARTIFACT: ${{ inputs.artifact }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          MAKE_TORRENT: ${{ inputs.make_torrent }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          iso="$(find iso -name '*.iso' | head -1)"
+          [ -n "$iso" ] || { echo "no ISO found in the artifact"; exit 1; }
+
+          bytes="$(stat -c%s "$iso")"
+          size="$(du -h "$iso" | cut -f1)"
+          sha="$(sha256sum "$iso" | cut -d' ' -f1)"
+          base="$(basename "$iso")"
+          # GitHub rejects a single release asset of 2 GiB or more. Split above
+          # a chunk size safely under that; stay single-asset below it so the
+          # small editions keep one clean, stable download URL.
+          limit=2147483648          # 2 GiB, GitHub's hard per-asset cap
+          chunk=1900M               # < 2 GiB, leaves headroom
+
+          # Stage exactly the files to upload in a clean dir.
+          rm -rf upload && mkdir upload
+          if [ "$bytes" -ge "$limit" ]; then
+            echo "ISO is $size (>= 2 GiB): splitting into ${chunk} parts"
+            # Zero-padded numeric suffixes: base.iso.part00, .part01, ...
+            split -b "$chunk" -d -a 2 "$iso" "upload/${base}.part"
+            ( cd upload && sha256sum ./* > SHA256SUMS )
+            # Put the whole-ISO checksum in the sums file too, for verification
+            # after reassembly.
+            echo "$sha  $base" >> upload/SHA256SUMS
+            mode="split"
+            parts="$(find upload -name "${base}.part*" | wc -l)"
+          else
+            echo "ISO is $size (< 2 GiB): uploading as a single asset"
+            cp "$iso" "upload/$base"
+            ( cd upload && sha256sum ./* > SHA256SUMS )
+            mode="single"
+          fi
+          # GPG-sign the checksum file when a signing key is configured
+          # (repo secret GPG_PRIVATE_KEY, ASCII-armored). Produces a detached
+          # SHA256SUMS.asc so anyone can verify the download's integrity and
+          # origin. Skipped cleanly when no key is set.
+          if [ -n "${GPG_PRIVATE_KEY:-}" ]; then
+            echo "signing SHA256SUMS with the configured GPG key"
+            export GNUPGHOME="$(mktemp -d)"
+            printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
+            keyid="$(gpg --list-secret-keys --with-colons | awk -F: '/^sec:/{print $5; exit}')"
+            gpg --batch --yes --pinentry-mode loopback \
+                ${GPG_PASSPHRASE:+--passphrase "$GPG_PASSPHRASE"} \
+                --local-user "$keyid" --armor --detach-sign \
+                --output upload/SHA256SUMS.asc upload/SHA256SUMS
+            gpg --armor --export "$keyid" > upload/undrabyte-signing-key.asc
+            echo "signed; attaching SHA256SUMS.asc and the public key"
+            SIGNED=1
+          else
+            echo "no GPG_PRIVATE_KEY secret set - skipping signing"
+            SIGNED=0
+          fi
+
+          # Optional BitTorrent: a .torrent whose web seed is the GitHub CDN, so
+          # downloads work with zero dedicated seeders and peers can share the
+          # load. Experimental - verify it against a client before relying on it.
+          if [ "$MAKE_TORRENT" = "true" ]; then
+            if command -v mktorrent >/dev/null 2>&1 || sudo apt-get install -y mktorrent >/dev/null 2>&1; then
+              webseed="https://github.com/${REPO}/releases/download/${TAG}"
+              ( cd upload
+                mktorrent -l 20 \
+                  -a "udp://tracker.opentrackr.org:1337/announce" \
+                  -a "udp://tracker.openbittorrent.com:6969/announce" \
+                  -w "$webseed" \
+                  -n "undrabyte-${TAG}" \
+                  -o "undrabyte-${TAG}.torrent" \
+                  ./* )
+              echo "created upload/undrabyte-${TAG}.torrent (web seed: $webseed)"
+            else
+              echo "mktorrent unavailable - skipping torrent"
+            fi
+          fi
+
+          ls -lh upload/
+
+          # Release notes -> notes.md (built line by line so the YAML block
+          # scalar stays valid and the markdown carries no stray indentation).
+          # For split images, give copy-paste reassembly for every host OS.
+          if [ "$mode" = split ]; then
+            {
+              printf '%s\n\n' "UndraByte **${ARTIFACT}** live ISO (${size}). Boot in UTM, QEMU or VirtualBox."
+              printf '%s\n\n' "This image exceeds GitHub's 2 GiB per-file limit, so it ships as ${parts} parts (\`${base}.part00\`, \`.part01\`, ...). Download **all** parts and \`SHA256SUMS\`, then rejoin them into one ISO:"
+              printf '%s\n' "**Linux / macOS**"
+              printf '%s\n' '```'
+              printf '%s\n' "cat ${base}.part* > ${base}"
+              printf '%s\n' "sha256sum -c SHA256SUMS      # expect: ${base}: OK"
+              printf '%s\n\n' '```'
+              printf '%s\n' "**Windows (PowerShell)**"
+              printf '%s\n' '```'
+              printf '%s\n' "cmd /c copy /b (${base}.part00 + ${base}.part01 + ...) ${base}"
+              printf '%s\n\n' '```'
+              printf '%s\n' "Direct, resumable CDN downloads (no login, no zip)."
+            } > notes.md
+          else
+            printf '%s\n' "UndraByte **${ARTIFACT}** live ISO (${size}). Direct, resumable CDN download (no login, no zip). Boot in UTM, QEMU or VirtualBox. Verify with \`sha256sum -c SHA256SUMS\`." > notes.md
+          fi
+
+          # Verification / torrent footnotes.
+          if [ "${SIGNED:-0}" = "1" ]; then
+            {
+              printf '\n%s\n' "**Verify the signature** (optional): import \`undrabyte-signing-key.asc\`, then"
+              printf '%s\n' '```'
+              printf '%s\n' "gpg --verify SHA256SUMS.asc SHA256SUMS"
+              printf '%s\n' '```'
+            } >> notes.md
+          fi
+          if [ -f upload/undrabyte-${TAG}.torrent ]; then
+            printf '\n%s\n' "A \`.torrent\` is attached (GitHub CDN as web seed). Experimental." >> notes.md
+          fi
+
+          # Create the release only if the tag does not exist yet; never delete
+          # it first. Replace assets in place with --clobber so a failed upload
+          # can never leave the tag with no downloadable image.
+          if ! gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            gh release create "$TAG" -R "$REPO" \
+               --title "UndraByte live ISO ($ARTIFACT)" \
+               --notes-file notes.md \
+               --target "$SHA"
+          else
+            gh release edit "$TAG" -R "$REPO" \
+               --title "UndraByte live ISO ($ARTIFACT)" --notes-file notes.md
+          fi
+
+          # If a previous publish to this tag split the image and this one does
+          # not (or vice-versa), stale assets of the other shape would linger.
+          # Remove any asset not in this upload set before clobbering.
+          mapfile -t keep < <(cd upload && find . -maxdepth 1 -type f -printf '%f\n')
+          existing="$(gh release view "$TAG" -R "$REPO" --json assets --jq '.assets[].name' || true)"
+          for a in $existing; do
+            skip=0
+            for k in "${keep[@]}"; do [ "$a" = "$k" ] && skip=1 && break; done
+            if [ "$skip" -eq 0 ]; then
+              echo "removing stale asset: $a"
+              gh release delete-asset "$TAG" "$a" -R "$REPO" --yes || true
+            fi
+          done
+
+          gh release upload "$TAG" upload/* -R "$REPO" --clobber
+
+          echo "Release assets:"
+          gh release view "$TAG" -R "$REPO" --json assets \
+             --jq '.assets[] | "\(.name)  \(.size) bytes"'

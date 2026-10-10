@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+#
+# Reclaim disk space, the safe way.
+#
+# Removes the things that pile up on a rolling-release Arch system - orphan
+# packages, the pacman download cache, old journals, unused Flatpak runtimes
+# and stale snapshots - and reports how much each step freed. Nothing here
+# touches your files; it only clears caches and genuinely unused packages.
+#
+#   undrabyte-cleanup                what would be freed (a dry run, no changes)
+#   undrabyte-cleanup --run          actually clean
+#   undrabyte-cleanup --run --deep   also drop the ENTIRE pacman cache and all
+#                                    journals (keeps nothing for rollback)
+#   undrabyte-cleanup --run --yes    do not pause for confirmation
+
+set -euo pipefail
+
+BOLD=$'\033[1m'; RST=$'\033[0m'
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; DIM=$'\033[2m'
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+warn() { printf '%swarning:%s %s\n' "$YEL" "$RST" "$*" >&2; }
+ok()   { printf '%s  ok%s %s\n' "$GRN" "$RST" "$*"; }
+have() { command -v "$1" &>/dev/null; }
+
+DO_RUN=0
+DEEP=0
+ASSUME_YES=0
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --run)      DO_RUN=1; shift ;;
+        --deep)     DEEP=1; shift ;;
+        -y|--yes)   ASSUME_YES=1; shift ;;
+        -h|--help)  sed -n '3,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *)          die "unknown argument: $1 (try --help)" ;;
+    esac
+done
+
+# A dry run only reads (pacman -Qdtq, du, df - all fine unprivileged); actually
+# cleaning needs root. So require root only in --run mode.
+if (( DO_RUN )) && [[ $EUID -ne 0 ]]; then
+    die "cleaning needs root: sudo undrabyte-cleanup --run"
+fi
+
+# Free space on / before and after, so we can report the real gain.
+avail_kb() { df -Pk / | awk 'NR==2 {print $4}'; }
+human()    { awk -v k="$1" 'BEGIN{ split("KiB MiB GiB TiB",u," "); i=1; while(k>=1024&&i<4){k/=1024;i++} printf "%.1f %s", k, u[i] }'; }
+
+before_kb=$(avail_kb)
+
+if (( ! DO_RUN )); then
+    warn "dry run: showing what WOULD be cleaned. Add --run to actually do it."
+fi
+
+# A step: describe it, and run it only in --run mode. A single step failing
+# (a cache already empty, a service absent) must never abort the whole clean,
+# so a non-zero return is surfaced as a warning rather than killing the script.
+step() {
+    local label=$1; shift
+    printf '\n%s%s%s\n' "$BOLD" "$label" "$RST"
+    if (( DO_RUN )); then
+        "$@" || warn "'$label' did not complete cleanly"
+    else
+        "$@" || true   # show what WOULD happen; the functions self-guard on DO_RUN
+    fi
+}
+
+orphans() {
+    local -a o=()
+    mapfile -t o < <(pacman -Qdtq 2>/dev/null || true)
+    if (( ${#o[@]} == 0 )); then ok "no orphan packages"; return 0; fi
+    printf '  %d orphan(s): %s\n' "${#o[@]}" "${o[*]}"
+    (( DO_RUN )) && pacman -Rns --noconfirm "${o[@]}" && ok "orphans removed"
+}
+
+pacman_cache() {
+    if ! have paccache && (( ! DEEP )); then
+        warn "pacutils/paccache not installed; falling back to a full cache clean needs --deep"
+        return 0
+    fi
+    if (( DEEP )); then
+        printf '  dropping the entire package cache (no rollback copies kept)\n'
+        (( DO_RUN )) && pacman -Scc --noconfirm >/dev/null && ok "cache emptied"
+    else
+        printf '  keeping the last 2 versions of each package, removing older ones\n'
+        (( DO_RUN )) && paccache -rk2 >/dev/null && ok "old cached packages removed"
+        printf '  removing cached versions of uninstalled packages\n'
+        (( DO_RUN )) && paccache -ruk0 >/dev/null && ok "uninstalled-package cache removed"
+    fi
+}
+
+journals() {
+    if (( DEEP )); then
+        printf '  vacuuming the journal to 50 MiB\n'
+        (( DO_RUN )) && journalctl --rotate -q && journalctl --vacuum-size=50M -q && ok "journal trimmed"
+    else
+        printf '  vacuuming journal entries older than 2 weeks\n'
+        (( DO_RUN )) && journalctl --rotate -q && journalctl --vacuum-time=2weeks -q && ok "journal trimmed"
+    fi
+}
+
+flatpak_unused() {
+    have flatpak || { ok "flatpak not installed; skipping"; return 0; }
+    printf '  removing unused Flatpak runtimes\n'
+    (( DO_RUN )) && flatpak uninstall --unused -y &>/dev/null && ok "unused runtimes removed" || true
+}
+
+user_caches() {
+    # ~/.cache for the invoking user (not root's). Thumbnails, pip/npm, etc.
+    local u=${SUDO_USER:-} home
+    [[ -z $u || $u == root ]] && { ok "no unprivileged user; skipping ~/.cache"; return 0; }
+    home=$(getent passwd "$u" | cut -d: -f6)
+    [[ -d $home/.cache ]] || { ok "no ~/.cache for $u"; return 0; }
+    local sz; sz=$(du -sh "$home/.cache" 2>/dev/null | cut -f1)
+    printf '  %s/.cache is %s\n' "$home" "${sz:-?}"
+    (( DO_RUN )) && find "$home/.cache" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null && ok "user cache cleared" || true
+}
+
+old_snapshots() {
+    have undrabyte-snapshot || { ok "undrabyte-snapshot not present; skipping"; return 0; }
+    printf '  pruning UndraByte snapshots beyond the keep limit\n'
+    (( DO_RUN )) && undrabyte-snapshot prune &>/dev/null && ok "old snapshots pruned" || true
+}
+
+if (( DO_RUN && ! ASSUME_YES )); then
+    printf '%sThis will remove orphans, caches and old logs%s' "$YEL" "$RST"
+    (( DEEP )) && printf '%s, and empty the package cache and journals (no rollback)%s' "$YEL" "$RST"
+    printf '.\nContinue? [y/N]: '
+    read -r reply
+    [[ $reply == [yY]* ]] || die "cancelled"
+fi
+
+step "Orphan packages"            orphans
+step "Package cache"              pacman_cache
+step "System journals"           journals
+step "Flatpak runtimes"          flatpak_unused
+step "User cache (~/.cache)"      user_caches
+step "Old snapshots"             old_snapshots
+
+after_kb=$(avail_kb)
+freed_kb=$(( after_kb - before_kb ))
+printf '\n'
+if (( DO_RUN )); then
+    if (( freed_kb > 0 )); then
+        printf '%sFreed about %s.%s  (%s now available on /)\n' \
+            "$GRN" "$(human "$freed_kb")" "$RST" "$(human "$after_kb")"
+    else
+        printf '%sDone.%s  (%s available on /)\n' "$GRN" "$RST" "$(human "$after_kb")"
+    fi
+else
+    printf '%sDry run complete.%s Re-run with %s--run%s to apply.\n' "$DIM" "$RST" "$BOLD" "$RST"
+fi

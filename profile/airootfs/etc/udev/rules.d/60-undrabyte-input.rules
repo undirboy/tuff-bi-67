@@ -1,0 +1,4 @@
+# Steam Input, gamescope and most emulators create virtual devices through
+# /dev/uinput. The node is root-only by default, which makes controller
+# remapping silently fail.
+KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"

@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+#
+# UndraByte Software - a point-and-click app installer.
+#
+# The "easy as Windows" front end: tick the apps you want, press Install, and
+# they are fetched from the official Arch repositories. No terminal commands,
+# no package names to remember. The actual install runs in a visible terminal
+# so the sudo prompt and download progress are in plain sight.
+#
+# Only official-repo packages are offered here. AUR builds (Burp Suite, Heroic,
+# and so on) go through `undrabyte-toolkit aur`, which bootstraps a build
+# helper first - that is a different, slower path and stays out of this GUI.
+
+set -uo pipefail
+
+TITLE="UndraByte Software"
+
+# ---- the catalogue -------------------------------------------------------
+# One entry per line: Category | Name | Description | package(s)
+# Everything here is in core/extra/multilib, so a plain `pacman -S` resolves
+# it. Multi-package entries are space-separated in the last field.
+catalogue() {
+    cat <<'APPS'
+Web|Firefox|Mozilla's web browser|firefox
+Web|Chromium|The open-source Chrome browser|chromium
+Web|qBittorrent|Torrent client|qbittorrent
+Web|FileZilla|FTP / SFTP file transfer|filezilla
+Communication|Thunderbird|Email client|thunderbird
+Communication|Telegram|Telegram desktop messenger|telegram-desktop
+Communication|HexChat|IRC chat client|hexchat
+Media|VLC|Plays practically any video or audio|vlc
+Media|mpv|Minimal, keyboard-driven media player|mpv
+Media|OBS Studio|Screen recording and live streaming|obs-studio
+Media|Audacity|Audio recording and editing|audacity
+Graphics|GIMP|Photo and image editor|gimp
+Graphics|Inkscape|Vector graphics editor|inkscape
+Graphics|Krita|Digital painting|krita
+Graphics|Blender|3D modelling and animation|blender
+Office|LibreOffice|Full office suite (docs, sheets, slides)|libreoffice-fresh
+Office|Okular|PDF and document viewer|okular
+Utilities|KeePassXC|Password manager|keepassxc
+Utilities|Flameshot|Annotated screenshots|flameshot
+Utilities|GParted|Partition editor|gparted
+Utilities|Disk Utility|Format and inspect drives|gnome-disk-utility
+Utilities|Meld|Visual file/folder diff|meld
+Development|VS Code|Code editor (OSS build)|code
+Development|Meld (diff)|Compare files and merge changes|meld
+APPS
+}
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# A terminal to run the install in, so the sudo prompt and pacman output are
+# visible. Fall back through the common emulators.
+run_in_terminal() {
+    local cmd=$1
+    local hold="$cmd; echo; echo 'Done - you can close this window.'; read -r -p 'Press Enter to close ' _"
+    if   have xfce4-terminal; then xfce4-terminal --title="$TITLE" -e "bash -lc \"$hold\""
+    elif have konsole;        then konsole -e bash -lc "$hold"
+    elif have alacritty;      then alacritty -e bash -lc "$hold"
+    elif have kitty;          then kitty bash -lc "$hold"
+    elif have xterm;          then xterm -T "$TITLE" -e bash -lc "$hold"
+    else
+        # No terminal at all: run headless and report through a dialog.
+        bash -lc "$cmd"
+    fi
+}
+
+gui_error() {
+    if have yad; then
+        yad --error --title="$TITLE" --text="$1" --button=OK:0 --width=380 2>/dev/null
+    else
+        printf 'undrabyte-software: %s\n' "$1" >&2
+    fi
+}
+
+main() {
+    if ! have yad; then
+        gui_error "The graphical installer needs 'yad', which is not installed.\n\nInstall apps from the terminal instead, e.g.:\n  sudo pacman -S firefox vlc gimp"
+        exit 1
+    fi
+    if ! have pacman; then
+        gui_error "pacman was not found - this does not look like an UndraByte/Arch system."
+        exit 1
+    fi
+
+    # Build the yad --list arguments from the catalogue.
+    local -a rows=()
+    local cat name desc pkg
+    while IFS='|' read -r cat name desc pkg; do
+        [[ -z ${cat:-} ]] && continue
+        rows+=(FALSE "$cat" "$name" "$desc" "$pkg")
+    done < <(catalogue)
+
+    local selection
+    selection="$(
+        yad --list --checklist --title="$TITLE" \
+            --text="<b>Pick the apps you want, then press Install.</b>  They download from the official repositories." \
+            --width=680 --height=560 --center \
+            --column="Install:CHK" --column="Category" --column="App" \
+            --column="What it is" --column="pkg:HD" \
+            --print-column=5 --separator=' ' \
+            --button="Cancel:1" --button="Install:0" \
+            "${rows[@]}" 2>/dev/null
+    )" || exit 0
+
+    # Collapse whitespace; nothing ticked means nothing to do.
+    read -r -a pkgs <<<"$selection"
+    if (( ${#pkgs[@]} == 0 )); then
+        exit 0
+    fi
+
+    run_in_terminal "sudo pacman -S --needed ${pkgs[*]}"
+}
+
+main "$@"

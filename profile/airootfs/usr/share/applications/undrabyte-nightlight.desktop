@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Night Light (toggle)
+GenericName=Blue-light filter
+Comment=Warm the screen to reduce blue light - toggle on or off (also Super+N)
+Exec=undrabyte-nightlight toggle
+Icon=weather-clear-night
+Terminal=false
+Categories=Settings;Utility;X-UndraByte;
+Keywords=night;light;blue;warm;redshift;eyes;color;temperature;

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=CTF Workspace
+GenericName=Capture the Flag
+Comment=Scaffold a CTF / reverse-engineering workspace and install the RE kit
+Exec=undrabyte-ctf status
+Icon=applications-engineering
+Terminal=true
+Categories=Development;System;X-UndraByte;
+Keywords=ctf;reverse;engineering;pwn;exploit;pwntools;gef;pwndbg;ghidra;

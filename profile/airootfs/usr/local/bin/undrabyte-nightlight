@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+#
+# undrabyte-nightlight - a warm-screen (blue-light filter) toggle.
+#
+# Redshift shifts the display to a warmer colour temperature so the screen is
+# easier on the eyes at night. This wraps it so it is one command (or one
+# keypress - Super+N) to turn on, turn off, or toggle, and it remembers the
+# last state per user.
+#
+#   undrabyte-nightlight            toggle on/off
+#   undrabyte-nightlight on         warm the screen now
+#   undrabyte-nightlight off        back to normal colour
+#   undrabyte-nightlight status     say whether it is on
+#   undrabyte-nightlight warm|WARMER set the temperature (e.g. 3400)
+#
+# Temperature is in Kelvin: 6500 is neutral daylight, lower is warmer/redder.
+# Default is 3400K, a comfortable evening warmth.
+
+set -uo pipefail
+
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/undrabyte"
+STATE_FILE="$STATE_DIR/nightlight.state"
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/undrabyte"
+TEMP_FILE="$CONF_DIR/nightlight.temp"
+DEFAULT_TEMP=3400
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+die() { printf 'undrabyte-nightlight: %s\n' "$*" >&2; exit 1; }
+
+notify() {
+    if have notify-send; then
+        notify-send -a "Night light" -t 2500 "Night light" "$1" 2>/dev/null || true
+    fi
+    printf '%s\n' "$1"
+}
+
+read_temp() {
+    if [ -r "$TEMP_FILE" ]; then
+        cat "$TEMP_FILE"
+    else
+        echo "$DEFAULT_TEMP"
+    fi
+}
+
+is_on() {
+    # redshift -O applies the gamma ramps and exits (no resident process), so
+    # the state file - not a running process - is the source of truth. It lives
+    # in XDG_RUNTIME_DIR, which is cleared on logout, so state resets per
+    # session, matching the gamma which also resets when the X session ends.
+    [ -f "$STATE_FILE" ]
+}
+
+turn_off() {
+    # redshift -x resets the gamma ramps to neutral (undoes the warming).
+    if have redshift; then redshift -x >/dev/null 2>&1 || true; fi
+    rm -f "$STATE_FILE"
+    notify "Off - screen back to normal colour."
+}
+
+turn_on() {
+    have redshift || die "redshift is not installed (sudo pacman -S redshift)."
+    local temp; temp="$(read_temp)"
+    # -O = one-shot manual: set a constant colour temperature and exit (no
+    # geoclue/location, no daemon). -P resets existing ramps first so repeated
+    # calls don't stack. The gamma it sets persists until 'off' or logout.
+    redshift -P -O "$temp" >/dev/null 2>&1 \
+        || die "could not apply the warm tint (is an X session running?)."
+    mkdir -p "$STATE_DIR"
+    printf '%s\n' "$temp" > "$STATE_FILE"
+    notify "On - screen warmed to ${temp}K."
+}
+
+set_temp() {
+    local t="$1"
+    [[ "$t" =~ ^[0-9]+$ ]] || die "temperature must be a number in Kelvin, e.g. 3400."
+    (( t >= 1000 && t <= 6500 )) || die "temperature must be between 1000 and 6500 K."
+    mkdir -p "$CONF_DIR"
+    printf '%s\n' "$t" > "$TEMP_FILE"
+    printf 'Night-light temperature set to %sK.\n' "$t"
+    is_on && turn_on
+}
+
+case "${1:-toggle}" in
+    on)     turn_on ;;
+    off)    turn_off ;;
+    toggle) if is_on; then turn_off; else turn_on; fi ;;
+    status)
+        if is_on; then printf 'Night light is ON (%sK).\n' "$(cat "$STATE_FILE")"
+        else printf 'Night light is off (temperature would be %sK).\n' "$(read_temp)"; fi ;;
+    warm|temp|WARMER)
+        [ -n "${2:-}" ] || die "usage: undrabyte-nightlight warm <kelvin>"
+        set_temp "$2" ;;
+    -h|--help)
+        sed -n '3,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+    *) die "unknown command '$1' (try: on, off, toggle, status, warm <kelvin>)" ;;
+esac

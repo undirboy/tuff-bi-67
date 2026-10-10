@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Backup & Restore
+GenericName=Backup
+Comment=Copy your home folder and settings to a drive, and restore them later
+Exec=undrabyte-backup
+Icon=document-save
+Terminal=true
+Categories=System;Utility;X-UndraByte;
+Keywords=backup;restore;rsync;save;home;copy;

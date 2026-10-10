@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=First-run Setup
+GenericName=Setup Wizard
+Comment=Set hostname, timezone, locale, keyboard layout and theme
+Exec=undrabyte-firstrun
+Icon=preferences-system
+Terminal=false
+Categories=System;Settings;X-UndraByte;
+Keywords=setup;wizard;firstrun;hostname;timezone;locale;keyboard;

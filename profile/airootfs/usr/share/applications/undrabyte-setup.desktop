@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=UndraByte Setup
+GenericName=First-run wizard
+Comment=Re-run the friendly setup (theme, keyboard, Wi-Fi, password)
+Exec=undrabyte-setup --force
+Icon=applications-system
+Terminal=false
+Categories=Settings;System;X-UndraByte;
+Keywords=setup;wizard;welcome;first;run;configure;

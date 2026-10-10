@@ -1,0 +1,146 @@
+#!/data/data/com.termux/files/usr/bin/bash
+#
+# UndraByte Mobile - a native Arch Linux ARM desktop on Android, via Termux.
+#
+# It runs on the phone's OWN ARM CPU through proot (no emulation, so no
+# architecture-translation lag) and shows an XFCE desktop over VNC. Works on
+# essentially any Android phone that can run the Termux app.
+#
+#   bash undrabyte-mobile install    # one-time setup (downloads ~1-1.5 GB)
+#   bash undrabyte-mobile start      # start the desktop, then open a VNC viewer
+#   bash undrabyte-mobile stop       # stop the desktop
+#   bash undrabyte-mobile shell      # drop into a shell inside the system
+#
+# What works: XFCE desktop, coding (python/node/git/...), light network recon
+# (nmap and friends), editors, a terminal. What does NOT: anything needing real
+# hardware or kernel access - WiFi monitor-mode/cracking, raw-socket tools, GPU
+# gaming. A phone in an app sandbox simply cannot reach that hardware.
+
+set -uo pipefail
+
+DISTRO="archlinux"
+GEOM="${UNDRABYTE_GEOM:-1280x720}"
+DISPLAY_NUM=1
+VNC_PORT=$((5900 + DISPLAY_NUM))
+
+c_msg='\033[1;36m'; c_ok='\033[1;32m'; c_err='\033[1;31m'; c_rst='\033[0m'
+msg() { printf "${c_msg}==>${c_rst} %s\n" "$*"; }
+ok()  { printf "${c_ok} ok ${c_rst} %s\n" "$*"; }
+die() { printf "${c_err}error:${c_rst} %s\n" "$*" >&2; exit 1; }
+
+require_termux() {
+    [ -d /data/data/com.termux ] \
+        || die "Run this inside the Termux app on Android (not a normal terminal)."
+}
+
+do_install() {
+    require_termux
+    msg "Updating Termux and installing proot-distro..."
+    pkg update -y >/dev/null 2>&1 || true
+    pkg install -y proot-distro >/dev/null || die "could not install proot-distro"
+
+    msg "Installing Arch Linux ARM (downloads ~500 MB, be patient)..."
+    proot-distro install "$DISTRO" 2>/dev/null || msg "Arch already present, continuing."
+
+    msg "Provisioning the desktop and tools inside Arch..."
+    proot-distro login "$DISTRO" -- bash -s <<'INSIDE'
+set -e
+pacman-key --init 2>/dev/null || true
+pacman-key --populate archlinuxarm 2>/dev/null || true
+pacman -Syu --noconfirm
+
+# desktop + VNC server + the bits a session needs
+pacman -S --needed --noconfirm \
+    xfce4 xfce4-terminal thunar mousepad ristretto \
+    tigervnc xorg-xauth dbus ttf-dejavu ttf-liberation \
+    pavucontrol
+
+# a phone-sensible toolset: coding + light recon + shell quality of life
+pacman -S --needed --noconfirm \
+    base-devel git python python-pip nodejs npm go \
+    nmap whois curl wget openssh nano vim htop tmux \
+    jq ripgrep fd bat fastfetch
+
+# the live user
+if ! id -u forge >/dev/null 2>&1; then
+    useradd -m -s /bin/bash forge
+fi
+printf 'forge ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/99-forge
+chmod 0440 /etc/sudoers.d/99-forge
+
+# VNC session startup for the forge user
+runuser -u forge -- bash -c '
+  mkdir -p "$HOME/.vnc"
+  cat > "$HOME/.vnc/xstartup" <<XS
+#!/bin/sh
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+export XDG_RUNTIME_DIR="$HOME/.xdg"
+mkdir -p "$XDG_RUNTIME_DIR"
+exec dbus-launch --exit-with-session startxfce4
+XS
+  chmod +x "$HOME/.vnc/xstartup"
+'
+echo "provisioned-ok"
+INSIDE
+
+    msg "Set a VNC password (you'll type it in your VNC viewer app):"
+    proot-distro login "$DISTRO" --user forge -- vncpasswd \
+        || die "could not set the VNC password; re-run: bash undrabyte-mobile install"
+
+    ok "Install complete."
+    printf '\nStart the desktop with:\n  bash undrabyte-mobile start\n\n'
+}
+
+do_start() {
+    require_termux
+    msg "Starting the UndraByte desktop on :$DISPLAY_NUM ..."
+    proot-distro login "$DISTRO" --user forge -- bash -c "
+        vncserver -kill :$DISPLAY_NUM >/dev/null 2>&1 || true
+        vncserver :$DISPLAY_NUM -geometry $GEOM -depth 24 -localhost yes
+    " || die "vncserver failed to start; run 'bash undrabyte-mobile install' first."
+
+    cat <<EOF
+
+$(printf "${c_ok}Desktop is running.${c_rst}")  On THIS phone:
+  1. Install a free VNC viewer app: AVNC, bVNC, or RealVNC Viewer.
+  2. Connect it to:   127.0.0.1:${VNC_PORT}      (host 127.0.0.1, port ${VNC_PORT})
+  3. Enter the VNC password you set during install.
+
+You'll land on the XFCE desktop with your tools. Rotate the phone to
+landscape for room. Change the size any time:
+  UNDRABYTE_GEOM=1600x900 bash undrabyte-mobile start
+
+Stop it with:  bash undrabyte-mobile stop
+EOF
+}
+
+do_stop() {
+    require_termux
+    proot-distro login "$DISTRO" --user forge -- vncserver -kill ":$DISPLAY_NUM" 2>/dev/null || true
+    ok "Desktop stopped."
+}
+
+do_shell() {
+    require_termux
+    proot-distro login "$DISTRO" --user forge
+}
+
+case "${1:-}" in
+    install) do_install ;;
+    start)   do_start ;;
+    stop)    do_stop ;;
+    shell)   do_shell ;;
+    *)
+        cat <<EOF
+UndraByte Mobile - native Arch desktop on Android (Termux)
+
+usage:
+  bash undrabyte-mobile install    one-time setup (~1-1.5 GB download)
+  bash undrabyte-mobile start      start the desktop (connect a VNC viewer to 127.0.0.1:${VNC_PORT})
+  bash undrabyte-mobile stop       stop the desktop
+  bash undrabyte-mobile shell      a shell inside the system
+EOF
+        exit 1
+        ;;
+esac

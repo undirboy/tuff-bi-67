@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Free Up Disk Space
+GenericName=Cleanup
+Comment=Remove orphan packages, caches and old logs (shows a dry run first)
+Exec=sudo undrabyte-cleanup
+Icon=user-trash
+Terminal=true
+Categories=System;Utility;X-UndraByte;
+Keywords=clean;cleanup;disk;space;cache;orphan;free;trim;

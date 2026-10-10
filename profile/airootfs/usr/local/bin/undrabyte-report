@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+#
+# Bundle a support report: what undrabyte-doctor sees, plus the logs and system
+# facts someone helping you would ask for. Everything lands in one file you can
+# attach to an issue or paste a link to.
+#
+# It is conservative about privacy: no passwords, no SSH keys, no browser data.
+# It does capture hostnames, usernames, IP addresses and hardware IDs, because
+# those are what diagnosis needs - review the file before sharing it.
+#
+#   undrabyte-report                 write a report to ~/undrabyte-report-DATE.txt
+#   undrabyte-report --out FILE      write it somewhere specific
+#   undrabyte-report --paste         also upload it to a paste service and print the URL
+#
+# --paste sends the report to an external site (0x0.st). Only use it on a
+# report you have read and are happy to make public.
+
+set -euo pipefail
+
+BOLD=$'\033[1m'; RST=$'\033[0m'
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; DIM=$'\033[2m'
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+warn() { printf '%swarning:%s %s\n' "$YEL" "$RST" "$*" >&2; }
+have() { command -v "$1" &>/dev/null; }
+
+OUT=""
+DO_PASTE=0
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --out)      OUT=${2:?}; shift 2 ;;
+        --paste)    DO_PASTE=1; shift ;;
+        -h|--help)  sed -n '3,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *)          die "unknown argument: $1 (try --help)" ;;
+    esac
+done
+
+if [[ -z $OUT ]]; then
+    home=${HOME:-/root}
+    OUT="$home/undrabyte-report-$(date +%Y%m%d-%H%M%S).txt"
+fi
+
+# Run a command as a titled section; never let one failing command abort the
+# whole report (set -e is relaxed per section with `|| true`).
+section() {
+    local title=$1; shift
+    printf '\n========== %s ==========\n' "$title"
+    "$@" 2>&1 || printf '(command failed or not available)\n'
+}
+
+build_report() {
+    printf 'UndraByte support report\n'
+    printf 'generated: %s\n' "$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+    section "OS release"            cat /usr/lib/os-release
+    section "UndraByte version"     sh -c '. /usr/lib/os-release 2>/dev/null; echo "${BUILD_ID:-unknown}"'
+    section "Kernel"                uname -a
+    section "Live or installed"     sh -c '[ -e /run/archiso ] && echo "live medium (archiso)" || echo "installed system"'
+    section "Virtualisation"        systemd-detect-virt
+    section "Uptime / load"         uptime
+    section "CPU"                   sh -c 'lscpu | head -25'
+    section "Memory"                free -h
+    section "Disks"                 lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINTS
+    section "Disk usage"            df -hT -x tmpfs -x devtmpfs
+    section "Block device labels"   blkid
+    section "PCI (graphics/net)"    sh -c 'lspci -nn | grep -Ei "vga|3d|display|network|ethernet" || lspci -nn'
+    section "Loaded graphics driver" sh -c 'lspci -k | grep -A3 -Ei "vga|3d|display" || true'
+    section "Network interfaces"    ip -brief addr
+    section "Routing"               ip route
+    section "DNS"                   sh -c 'cat /etc/resolv.conf 2>/dev/null | grep -v "^#"'
+    section "Failed systemd units"  systemctl --failed --no-legend --no-pager
+    section "Firewall (ufw)"        sh -c 'command -v ufw >/dev/null && ufw status verbose || echo "ufw not installed"'
+    section "Optimiser state"       sh -c 'cat /var/lib/undrabyte/optimize.state 2>/dev/null || echo "untuned"'
+
+    if have undrabyte-doctor; then
+        section "undrabyte-doctor"  env NO_COLOR=1 undrabyte-doctor
+    fi
+    if have undrabyte-vmcheck; then
+        section "undrabyte-vmcheck" env NO_COLOR=1 undrabyte-vmcheck
+    fi
+
+    section "Explicitly installed packages" sh -c 'pacman -Qqe 2>/dev/null | tr "\n" " "'
+    section "Recent boot log (errors)"  sh -c 'journalctl -b -p err --no-pager 2>/dev/null | tail -60 || echo "journal unavailable"'
+    section "Last 40 journal lines"     sh -c 'journalctl -b --no-pager 2>/dev/null | tail -40 || true'
+    printf '\n========== end of report ==========\n'
+}
+
+info "collecting system facts (this takes a few seconds)"
+# Strip ANSI colour from embedded tool output so the file is clean text.
+build_report | sed -r 's/\x1B\[[0-9;]*[mGKH]//g' > "$OUT"
+chmod 600 "$OUT"
+
+# If sudo was used, hand the file back to the real user so they can read it.
+if [[ -n ${SUDO_USER:-} && $SUDO_USER != root ]]; then
+    chown "$SUDO_USER":"$(id -gn "$SUDO_USER" 2>/dev/null || echo "$SUDO_USER")" "$OUT" 2>/dev/null || true
+fi
+
+size=$(du -h "$OUT" | cut -f1)
+printf '%s  ok%s report written to %s (%s)\n' "$GRN" "$RST" "$OUT" "$size"
+printf '%sReview it before sharing - it contains IPs, hostnames and hardware IDs.%s\n' "$DIM" "$RST"
+
+if (( DO_PASTE )); then
+    have curl || die "--paste needs curl"
+    printf '\n%sThis uploads the report to a PUBLIC paste (0x0.st).%s Continue? [y/N]: ' "$YEL" "$RST"
+    read -r reply
+    [[ $reply == [yY]* ]] || die "not uploaded"
+    info "uploading"
+    url=$(curl -fsS -F "file=@${OUT}" -F "expires=168" https://0x0.st 2>/dev/null) \
+        || die "upload failed (no network, or the service is down)"
+    printf '%s  ok%s %s\n' "$GRN" "$RST" "$url"
+    printf '%sThe link expires in 7 days.%s\n' "$DIM" "$RST"
+fi

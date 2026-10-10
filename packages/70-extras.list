@@ -1,0 +1,28 @@
+# Fonts, media and desktop odds and ends.
+
+ttf-dejavu
+ttf-liberation
+noto-fonts
+noto-fonts-emoji
+ttf-jetbrains-mono-nerd
+ttf-nerd-fonts-symbols
+
+firefox
+chromium
+keepassxc
+vlc
+obs-studio
+ffmpeg          # powers undrabyte-record (one-command screen capture)
+xorg-xdpyinfo   # undrabyte-record reads the screen size from here
+gimp
+flameshot
+remmina
+freerdp
+
+# Flatpak + Flathub for apps that are not in the Arch repos. The Flathub
+# remote is added on first boot by undrabyte-flathub.service (online-gated).
+flatpak
+
+# Tor Browser (GUI) and an encrypted-folder backend for undrabyte-vault.
+torbrowser-launcher
+gocryptfs

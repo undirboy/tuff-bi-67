@@ -1,0 +1,38 @@
+# UndraByte Linux - creator / media edition
+# A content-creation workstation: video, audio, images, 3D and streaming.
+# Added on top of the base + desktop + extras set (which already brings
+# obs-studio, gimp, vlc, ffmpeg).
+
+# video editing & motion
+kdenlive            # non-linear video editor
+frei0r-plugins      # extra video transitions/effects for kdenlive
+mlt                 # the engine kdenlive renders through
+
+# raster & vector images
+krita               # digital painting
+inkscape            # vector graphics
+darktable           # RAW photo workflow
+
+# audio
+audacity            # audio recording & editing
+ardour              # multitrack DAW
+lmms                # loop-based music production
+lsp-plugins-lv2     # a broad LV2 effects suite
+
+# 3D & rendering
+blender             # 3D modelling, animation, video sequencer
+
+# streaming & capture helpers
+v4l2loopback-dkms   # virtual camera device (OBS virtual cam, etc.)
+easyeffects         # real-time mic/system audio effects (PipeWire)
+
+# codecs & colour
+gstreamer
+gst-plugins-good
+gst-plugins-bad
+gst-plugins-ugly
+gst-libav
+
+# fonts creators reach for
+adobe-source-code-pro-fonts
+adobe-source-sans-fonts

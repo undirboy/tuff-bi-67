@@ -1,0 +1,84 @@
+===============================================================================
+ UndraByte - Commands & Keyboard Shortcuts
+===============================================================================
+Everyday things need no commands - use the Start menu and the Software app.
+These make the power tools easy. (A formatted Word version sits next to this
+file: UndraByte-Commands.docx)
+
+New here? Open a terminal (Ctrl+Alt+T) and run:  undrabyte
+That opens a menu of everything on the system.
+
+-------------------------------------------------------------------------------
+ KEYBOARD SHORTCUTS (like Windows)
+-------------------------------------------------------------------------------
+  Super ................. Start menu (search apps & files)
+  Super + E ............. File manager
+  Super + R ............. Application finder (quick launch)
+  Super + I ............. Settings
+  Super + D ............. Show the desktop (minimise all)
+  Super + L ............. Lock the screen
+  Super + N ............. Night light on/off (warm screen)
+  Super + Print ......... Start / stop screen recording
+  Print ................. Screenshot the whole screen
+  Super + Shift + S ..... Screenshot a region you draw
+  Ctrl + Alt + T ........ Open a terminal
+  Ctrl + Alt + Del ...... Task Manager (also Ctrl + Shift + Esc)
+  Super + Up ............ Maximise window
+  Super + Left / Right .. Snap window to left / right half
+  Alt + Tab ............. Switch windows
+  Alt + F4 .............. Close window
+
+-------------------------------------------------------------------------------
+ EVERYDAY APPS & DESKTOP
+-------------------------------------------------------------------------------
+  undrabyte ..................... Main menu - every tool in one place
+  undrabyte-software ............ Install apps with a click
+  undrabyte-brave ............... Open Brave (the default browser)
+  undrabyte-winapps file.exe .... Run a Windows .exe / .msi (via Wine)
+  undrabyte-ai "your question" .. Ask the Claude AI helper
+  undrabyte-ai --set-key ........ Save your Anthropic API key (one time)
+  undrabyte-nightlight .......... Toggle the warm night-light (= Super+N)
+  undrabyte-record .............. Start / stop screen recording (= Super+Print)
+  undrabyte-theme dark .......... Dark mode everywhere (or: light)
+
+-------------------------------------------------------------------------------
+ QUICK NETWORK & UTILITY TOOLS
+-------------------------------------------------------------------------------
+  undrabyte-net ................. Your IPs, gateway, DNS, public IP, open ports
+  undrabyte-net scan ............ Find live hosts on your OWN LAN
+  undrabyte-share file .......... Share a file to your phone over Wi-Fi (+ QR)
+  undrabyte-passgen ............. Generate a strong password
+  undrabyte-passgen -w 5 ........ Generate a 5-word passphrase
+
+-------------------------------------------------------------------------------
+ SYSTEM & SETUP
+-------------------------------------------------------------------------------
+  sudo undrabyte-install --guided . Install UndraByte to a disk, step by step
+  undrabyte-optimize status ....... See how the system is tuned
+  sudo undrabyte-optimize apply ... Re-tune (runs automatically every boot)
+  undrabyte-vmcheck ............... Check VM health (3D, guest agent, sharing)
+  sudo undrabyte-toolkit update ... Update everything
+  undrabyte-toolkit aur <name> .... Install an extra app from the AUR
+
+-------------------------------------------------------------------------------
+ SECURITY TOOLKIT  (your OWN systems / authorised testing only)
+-------------------------------------------------------------------------------
+  undrabyte-vpn up file.ovpn ...... Connect a VPN (then: undrabyte-vpn down)
+  undrabyte-anon status ........... Show your IP, MAC and Tor status
+  sudo undrabyte-anon mac ......... Randomise your MAC address
+  sudo undrabyte-anon tor on ...... Turn Tor on / off
+  undrabyte-wifi .................. Capture & crack WPA - your own network only
+  undrabyte-lab list .............. Safe practice targets on your machine
+  undrabyte-toolkit install recon . Add a BlackArch tool group
+
+-------------------------------------------------------------------------------
+ INSTALLING / UPDATING SOFTWARE (terminal)
+-------------------------------------------------------------------------------
+  sudo pacman -S name ........... Install a program
+  sudo pacman -Rns name ......... Remove a program
+  sudo pacman -Syu .............. Update all software
+  pacman -Ss keyword ............ Search for a program
+
+Tip: the AI helper can explain any command -
+     undrabyte-ai "what does nmap do?"
+===============================================================================

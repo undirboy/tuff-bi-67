@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=UndraByte Control Center
+GenericName=Control Center
+Comment=One window for health, speed, updates, appearance, safety, software and install
+Exec=undrabyte-control
+Icon=preferences-desktop
+Terminal=false
+Categories=Settings;System;X-UndraByte;
+Keywords=control;center;settings;health;optimise;update;firewall;backup;vault;install;

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=UndraByte Setup
+Comment=Friendly first-run setup (theme, keyboard, Wi-Fi) - runs once
+Exec=undrabyte-setup
+Icon=applications-system
+Terminal=false
+X-XFCE-Autostart-enabled=true

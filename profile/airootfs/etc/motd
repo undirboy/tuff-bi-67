@@ -1,0 +1,11 @@
+
+  UndraByte Linux
+
+  undrabyte           the launcher, everything in one menu
+  undrabyte-theme     dark / light mode        undrabyte-optimize  tune this machine
+  undrabyte-vmcheck   VM and graphics health   undrabyte-game      gaming stack
+  undrabyte-toolkit   more tooling             undrabyte-install   install to disk
+
+  The offensive tooling here is for systems you own or are authorised to
+  test. Everything else is someone else's computer.
+

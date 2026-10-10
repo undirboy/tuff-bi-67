@@ -1,0 +1,16 @@
+[Unit]
+Description=Enable the Flathub Flatpak remote
+Documentation=man:flatpak(1)
+After=network-online.target
+Wants=network-online.target
+# Only meaningful when flatpak is installed (dev/security/gaming/full editions).
+ConditionPathExists=/usr/bin/flatpak
+
+[Service]
+Type=oneshot
+# Best-effort: the script exits 0 even offline so an enabled unit does not
+# show as failed; it simply retries on the next boot until the remote exists.
+ExecStart=/usr/lib/undrabyte/flathub-setup.sh
+
+[Install]
+WantedBy=multi-user.target

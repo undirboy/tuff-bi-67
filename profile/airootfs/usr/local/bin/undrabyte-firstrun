@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+#
+# First-run setup: one guided pass over the handful of things a fresh install
+# should settle - hostname, timezone, locale, keyboard layout, and the look of
+# the desktop. Safe to run again any time; it just shows the current values.
+#
+# It prefers a graphical wizard (yad) and falls back to clear text prompts, so
+# the same command works on the desktop, in a TTY and over SSH.
+#
+#   undrabyte-firstrun            run the guided setup
+#   undrabyte-firstrun --show     print the current settings and exit
+#
+# Most steps change the system and need root; it re-runs itself with sudo.
+
+set -uo pipefail
+
+BOLD=$'\033[1m'; RST=$'\033[0m'
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; DIM=$'\033[2m'
+
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+info() { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
+ok()   { printf '%s  ok%s %s\n' "$GRN" "$RST" "$*"; }
+have() { command -v "$1" &>/dev/null; }
+
+readonly STAMP=/var/lib/undrabyte/firstrun.done
+
+show_current() {
+    printf '%sCurrent settings%s\n' "$BOLD" "$RST"
+    printf '  hostname   %s\n' "$(hostnamectl --static 2>/dev/null || cat /etc/hostname 2>/dev/null || echo '?')"
+    printf '  timezone   %s\n' "$(timedatectl show -p Timezone --value 2>/dev/null || echo '?')"
+    printf '  locale     %s\n' "$(localectl status 2>/dev/null | awk -F': ' '/System Locale/{print $2}' | head -1)"
+    printf '  keymap     %s\n' "$(localectl status 2>/dev/null | awk -F': ' '/VC Keymap/{print $2}' | head -1)"
+    printf '  theme      %s\n' "$(undrabyte-theme status 2>/dev/null | head -1 || echo '?')"
+}
+
+[[ ${1:-} == --show ]] && { show_current; exit 0; }
+[[ ${1:-} == -h || ${1:-} == --help ]] && { sed -n '3,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0; }
+
+if [[ -e /run/archiso ]]; then
+    info "this is the live session - settings here will not persist across reboot."
+    info "run this after installing to disk (undrabyte-install)."
+fi
+
+# Re-exec with sudo for the parts that write system config, preserving the
+# user's display so the graphical wizard still appears.
+if [[ $EUID -ne 0 ]]; then
+    if have sudo; then
+        exec sudo -E "$0" "$@"
+    else
+        die "run as root"
+    fi
+fi
+
+GUI=0
+if have yad && [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]]; then GUI=1; fi
+
+# ------------------------------------------------------------- GUI wizard --
+
+run_gui() {
+    local cur_host cur_tz cur_locale cur_keymap cur_theme
+    cur_host=$(hostnamectl --static 2>/dev/null || echo undrabyte)
+    cur_tz=$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)
+    cur_locale=$(localectl status 2>/dev/null | awk -F': ' '/System Locale/{print $2}' | head -1); cur_locale=${cur_locale:-en_US.UTF-8}
+    cur_keymap=$(localectl status 2>/dev/null | awk -F': ' '/VC Keymap/{print $2}' | head -1); cur_keymap=${cur_keymap:-us}
+    cur_theme=$(undrabyte-theme status 2>/dev/null | grep -qi dark && echo dark || echo light)
+
+    local out
+    out=$(yad --form --title="UndraByte First-run Setup" --center --borders=16 \
+        --window-icon=preferences-system --width=460 \
+        --text="<b>Welcome to UndraByte</b>\nSet these once and you are done." \
+        --field="Hostname" "$cur_host" \
+        --field="Time zone (e.g. Europe/Berlin)" "$cur_tz" \
+        --field="Locale" "$cur_locale" \
+        --field="Keyboard layout" "$cur_keymap" \
+        --field="Theme:CB" "dark!light" \
+        --button="Cancel:1" --button="Apply:0") || return 1
+
+    IFS='|' read -r f_host f_tz f_locale f_keymap f_theme <<<"$out"
+    f_theme=${f_theme%%|*}   # yad appends a trailing '|'; keep just the value
+    apply host   "$f_host"
+    apply tz     "$f_tz"
+    apply locale "$f_locale"
+    apply keymap "$f_keymap"
+    apply theme  "${f_theme:-$cur_theme}"
+}
+
+# --------------------------------------------------------- text wizard ----
+
+ask() { local p=$1 d=$2 a; read -rp "$p [$d]: " a; printf '%s' "${a:-$d}"; }
+
+run_text() {
+    local h tz lc km th
+    h=$(ask  "Hostname" "$(hostnamectl --static 2>/dev/null || echo undrabyte)")
+    tz=$(ask "Time zone" "$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)")
+    lc=$(ask "Locale"    "$(localectl status 2>/dev/null | awk -F': ' '/System Locale/{print $2}' | head -1 | sed 's/.*=//')")
+    km=$(ask "Keyboard layout" "$(localectl status 2>/dev/null | awk -F': ' '/VC Keymap/{print $2}' | head -1)")
+    th=$(ask "Theme (dark/light)" "dark")
+    apply host "$h"; apply tz "$tz"; apply locale "${lc:-en_US.UTF-8}"; apply keymap "${km:-us}"; apply theme "$th"
+}
+
+# ------------------------------------------------------------- appliers ---
+
+apply() {
+    local what=$1 val=$2
+    [[ -z $val ]] && return 0
+    case $what in
+        host)
+            hostnamectl set-hostname "$val" 2>/dev/null && ok "hostname: $val" || true
+            # keep /etc/hosts consistent
+            if ! grep -q "127.0.1.1[[:space:]]\+$val" /etc/hosts 2>/dev/null; then
+                printf '127.0.1.1\t%s\n' "$val" >> /etc/hosts
+            fi
+            ;;
+        tz)
+            if [[ -e /usr/share/zoneinfo/$val ]]; then
+                timedatectl set-timezone "$val" 2>/dev/null && ok "timezone: $val" || true
+            else
+                printf '%swarning:%s unknown timezone "%s" - skipped\n' "$YEL" "$RST" "$val" >&2
+            fi
+            ;;
+        locale)
+            # Make sure the locale is generated before selecting it.
+            if ! grep -q "^$val" /etc/locale.gen 2>/dev/null; then
+                sed -i "s/^#\s*\($val\)/\1/" /etc/locale.gen 2>/dev/null || true
+                grep -q "^$val" /etc/locale.gen 2>/dev/null || echo "$val UTF-8" >> /etc/locale.gen
+                locale-gen >/dev/null 2>&1 || true
+            fi
+            localectl set-locale "LANG=$val" 2>/dev/null && ok "locale: $val" || true
+            ;;
+        keymap)
+            localectl set-keymap "$val" 2>/dev/null && ok "keymap: $val" || true
+            ;;
+        theme)
+            # Apply as the invoking user when possible, so it lands in their session.
+            local u=${SUDO_USER:-}
+            if [[ -n $u && $u != root ]] && have undrabyte-theme; then
+                sudo -u "$u" undrabyte-theme "$val" >/dev/null 2>&1 && ok "theme: $val" || true
+            elif have undrabyte-theme; then
+                undrabyte-theme "$val" >/dev/null 2>&1 && ok "theme: $val" || true
+            fi
+            ;;
+    esac
+}
+
+info "First-run setup"
+if (( GUI )); then run_gui || { info "setup cancelled"; exit 0; }
+else run_text; fi
+
+install -d /var/lib/undrabyte
+date -u '+%Y-%m-%dT%H:%M:%SZ' > "$STAMP"
+
+printf '\n'
+ok "setup complete"
+info "next, if you like:"
+printf '   %s- undrabyte-snapshot create%s   take a baseline snapshot\n' "$DIM" "$RST"
+printf '   %s- undrabyte-secureboot setup%s  enroll your own Secure Boot keys\n' "$DIM" "$RST"
+printf '   %s- undrabyte-control%s           the Control Center\n' "$DIM" "$RST"

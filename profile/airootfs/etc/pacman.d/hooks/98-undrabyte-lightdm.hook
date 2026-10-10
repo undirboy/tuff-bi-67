@@ -1,0 +1,15 @@
+# /etc/lightdm/lightdm-gtk-greeter.conf is owned by lightdm-gtk-greeter, so
+# the overlay cannot ship it directly (mkarchiso lays the overlay down before
+# pacstrap, and pacman aborts on a file conflict). Install our branded copy
+# from a hook instead - our own source file, so it never collides, and it
+# reapplies after any upgrade of the greeter.
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = lightdm-gtk-greeter
+
+[Action]
+Description = Applying UndraByte branding to the login screen...
+When = PostTransaction
+Exec = /usr/bin/install -Dm0644 /usr/local/lib/undrabyte/lightdm-gtk-greeter.conf /etc/lightdm/lightdm-gtk-greeter.conf

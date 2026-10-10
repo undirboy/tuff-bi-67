@@ -1,0 +1,18 @@
+[Unit]
+Description=UndraByte live session setup
+Documentation=https://github.com/undirboy/tuff-bi-67/blob/main/docs/ARCHITECTURE.md
+ConditionPathExists=/run/archiso
+After=systemd-sysusers.service systemd-tmpfiles-setup.service
+Before=display-manager.service systemd-user-sessions.service getty@tty1.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Invoke via bash rather than executing the script directly: this runs even if
+# the execute bit is somehow missing, so a permissions slip can never leave the
+# live session unable to start (status=203/EXEC).
+ExecStart=/usr/bin/bash /usr/lib/undrabyte/live-setup.sh
+StandardOutput=journal+console
+
+[Install]
+WantedBy=multi-user.target

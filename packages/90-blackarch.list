@@ -1,0 +1,14 @@
+# Only used with `--with-blackarch`. These are BlackArch groups, not single
+# packages; `blackarch-<group>` pulls in every tool in that category.
+# Full list: https://blackarch.org/groups.html
+#
+# Adding all ~3000 tools produces a ~20 GB ISO. These four groups are the
+# useful default and land around 4-6 GB.
+
+blackarch-recon
+blackarch-webapp
+blackarch-exploitation
+blackarch-forensic
+blackarch-cracker
+blackarch-wireless
+blackarch-crypto

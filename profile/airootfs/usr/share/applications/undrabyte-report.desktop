@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Support Report
+GenericName=Diagnostics Bundle
+Comment=Bundle system diagnostics and logs into one shareable file
+Exec=undrabyte-report
+Icon=help-about
+Terminal=true
+Categories=System;Utility;X-UndraByte;
+Keywords=report;support;diagnostics;logs;bug;help;
